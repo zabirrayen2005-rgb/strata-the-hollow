@@ -571,7 +571,7 @@
   $('load').style.display = 'none'; $('menu').style.display = 'flex';
   requestAnimationFrame(loop);
 
-  window.__strata = { P, G, setLevel: l => { setLevel(l); }, travel, get level() { return level; }, get health() { return health; }, set health(v) { health = v; },
+  window.__strata = { get state() { return state; }, P, G, jump: (n, o) => story && story.jump(n, o), setLevel: l => { setLevel(l); }, travel, get level() { return level; }, get health() { return health; }, set health(v) { health = v; },
     start() { state = 'play'; $('menu').style.display = 'none'; $('fade').style.opacity = 0; liftDoor[level] = 1; },
     story: () => story, tick: (n = 1, ms = 16.7) => { for (let i = 0; i < n; i++) frame(last + ms); },
     look: LOOK, finalPass, bloom, renderer, scene, camera, MATL, LM, die, flash: v => flashOn = v };

@@ -10,7 +10,8 @@
 
   const SAVE_KEY = 'strata_save_v2';
   const SELF_LIT = { D: .12, R: .22, S: .1 };     // fake bounce light for added props/people (world uses baked lightmaps)
-  const NET_CUT_DELAY = 5;                        // seconds after the power fix before the Directorate cuts the network
+  const NET_CUT_DELAY = 14;                       // seconds after the power fix before the Directorate cuts the network
+  const LIFE_HOLD = 40;                           // the cut waits while the player is on the Life screen, up to this long
   const HATCH = [0, -2.6];
 
   // ------------------------------------------------------------ objectives
@@ -78,9 +79,15 @@
       chips.push(`<span class="chip dim">Notes ${S.notes.length}/${NOTE_IDS.length}</span>`);
       $('inv').innerHTML = chips.join('');
     }
-    function renderObj() { $('objt').textContent = STAGES[Math.min(S.stage, STAGES.length - 1)].text; }
+    function renderObj() {
+      $('objt').textContent = STAGES[Math.min(S.stage, STAGES.length - 1)].text;
+      const lifeDone = S.life.leak && S.life.lamps && S.life.triage;
+      $('objo').textContent = S.flags.supplies && !lifeDone && !S.ended ? 'Optional: Life — water, food, medicine' : '';
+    }
     let toastT = null;
+    const VIDEO = /[?&]video=1/.test(location.search);
     function toast(who, text, ms = 4200) {
+      if (VIDEO) ms *= 1.4;
       const el = $('toast'); el.innerHTML = (who ? `<b>${who}</b> ` : '') + text; el.style.opacity = 1;
       clearTimeout(toastT); toastT = setTimeout(() => el.style.opacity = 0, ms);
     }
@@ -211,6 +218,30 @@
     }
     updateSite();
 
+    // ------------------------------------------------------------ Deep water point: ration sign + leaking pipe (react to the leak fix)
+    const SIGN_AT = [-11.9, 2.7];
+    const signCanvas = document.createElement('canvas'); signCanvas.width = 256; signCanvas.height = 128;
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    function drawSign() {
+      const x = signCanvas.getContext('2d'), ok = S.life.leak;
+      x.fillStyle = '#14110e'; x.fillRect(0, 0, 256, 128); x.strokeStyle = ok ? '#3ddc97' : '#ff5a4d'; x.lineWidth = 6; x.strokeRect(6, 6, 244, 116);
+      x.fillStyle = '#c8c0b0'; x.font = '600 20px sans-serif'; x.textAlign = 'center'; x.fillText('WATER RATION', 128, 40);
+      x.fillStyle = ok ? '#3ddc97' : '#ff5a4d'; x.font = '700 40px sans-serif'; x.fillText(ok ? '15 L PER PERSON' : 'RATION 8 L', 128, 92);
+      signTex.needsUpdate = true;
+    }
+    const sign = new THREE.Group(); sign.position.copy(pos('D', SIGN_AT[0], SIGN_AT[1], 0)); sign.rotation.y = -Math.PI / 2 + .35;
+    { const post = stdMat('D', 0x3a3530, .7); sign.add(box(.08, 1.8, .08, post, 0, .9, 0));
+      const board = new THREE.Mesh(new THREE.PlaneGeometry(1.1, .55), new THREE.MeshBasicMaterial({ map: signTex, fog: true })); board.position.set(0, 2.0, .05); sign.add(board);
+      sign.add(box(1.16, .6, .04, post, 0, 2.0, 0));
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, 1.8, 10), stdMat('D', 0x5b6168, .45)); pipe.rotation.z = Math.PI / 2; pipe.position.set(0, 2.75, .1); sign.add(pipe); }
+    C.extras.D.add(sign); C.G.D.circles.push([SIGN_AT[0], SIGN_AT[1], .25]);
+    const dripN = 40, dripPos = new Float32Array(dripN * 3), dripGeo = new THREE.BufferGeometry(); dripGeo.setAttribute('position', new THREE.BufferAttribute(dripPos, 3));
+    const drip = new THREE.Points(dripGeo, new THREE.PointsMaterial({ size: .05, color: 0x9fdcff, transparent: true, opacity: .85, depthWrite: false, fog: true }));
+    drip.frustumCulled = false; sign.add(drip);
+    const dripY = Array.from({ length: dripN }, (_, i) => i / dripN);
+    function leakWorld() { drawSign(); drip.visible = !S.life.leak; }
+    leakWorld();
+
     // ------------------------------------------------------------ keys (ECDSA P-256)
     (async () => {
       if (!E.sig.ok) return;
@@ -255,7 +286,7 @@
     function actLife(kind) {
       if (S.applied !== 'str' || S.life[kind]) return;
       M.lifePrev = M.life; S.life[kind] = true; save(); recomputeLife();
-      const t = LIFE_TOAST[kind]; toast(t[0], t[1](), 5200); C.ding(); rerender();
+      const t = LIFE_TOAST[kind]; toast(t[0], t[1](), 5200); C.ding(); renderObj(); rerender(); leakWorld();
     }
 
     // ------------------------------------------------------------ Act 2: network
@@ -293,7 +324,7 @@
       let sigHex = '', ok = false;
       if (M.keys.ava) { sigHex = await E.sig.sign(M.keys.ava, text); ok = await E.sig.verify(M.keys.ava, text, sigHex); }
       S.ava = { state: 'replied', text, sig: sigHex, ok }; save();
-      phoneAlert('AVA · I’M SAFE', false);
+      phoneAlert('AVA · SAFE', false);
       toast('AVA', '“I’m safe.” Signature checked against Ava’s key: ' + (ok ? 'valid' : 'not verified') + '. She sent the hatch override.', 6000);
       setStage(6);
     }
@@ -322,6 +353,7 @@
       const st = S.stage, end = S.ended;
       if (id === 'clerk') {
         if (end) return ['You saw the probe numbers? Six hours in a suit... my son wants to sign up for the next crew.'];
+        if (S.life.leak) return ['Ration board says 15 litres again. First time this month.'];
         if (st < 3) return ['Lights keep dipping. If the Deep goes dark, the window closes. Rules.', 'One ration per resident. Next.'];
         return ['Lamps steady for once. Whatever you did on that phone — thanks.'];
       }
@@ -333,12 +365,14 @@
       }
       if (id === 'ines') {
         if (end) return ['The screens... you did that? My grandmother would have cried.', 'Maybe one day I’ll see the sky without dying of it.'];
+        if (S.flags.retOpened) return ['The Deep goes up first? They never put us first for anything.'];
         if (st < 3) return ['Mara! The lamps keep dipping. Your phone is going off, look at it.'];
         if (st < 6) return ['The network’s gone. But my phone is talking to yours, look — they pass messages along.', 'Is Ava all right? She works up on L4, doesn’t she?'];
         return ['Ava’s safe? Thank god. Go — the lift is yours.'];
       }
       if (id === 'teo') {
         if (end) return ['They’re all in Apartment 01 shouting at each other about a probe. First time I’ve smiled in years.'];
+        if (S.life.lamps) return ['The farm crews are on nights now. Bread’s back on the Warrens list.', 'The Surface Director keeps his log in Apartment 07. I never told you that.'];
         return ['You shouldn’t be up here. ...The Surface Director keeps his log in Apartment 07. I never told you that.'];
       }
       return ['...'];
@@ -409,7 +443,14 @@
       phone().close();
       C.setState('end'); C.unlock(); busy.dlg = null; $('dlg').style.display = 'none';
       await C.fade(1, 1400);
-      $('endstats').textContent = `Time ${fmt(S.played)}  ·  Deep kept lit  ·  ${M.reach || '—'} phones on the mesh  ·  Reading ${S.sent && S.sent.ok ? 'verified' : 'sent'}  ·  Notes ${S.notes.length}/${NOTE_IDS.length}`;
+      const parts = [];
+      if (S.life.leak) parts.push(`Water for ${Math.round(M.life.waterDays)} days`);
+      if (S.life.lamps) parts.push(`food for ${isFinite(M.life.foodDays) ? Math.round(M.life.foodDays) : 'as long as the farms run'}`);
+      if (S.life.triage) parts.push('the inhalers went to the Deep first');
+      let p3 = parts.length ? parts.map((p, i) => i === 0 ? p[0].toUpperCase() + p.slice(1) : p).join(parts.length > 2 ? ', ' : ' and ').replace(/, ([^,]*)$/, ', and $1') + '.' : '';
+      if (S.flags.retOpened) p3 += (p3 ? ' ' : '') + 'The corridors run on staggered shifts and the Deep goes up first.';
+      $('endp3').textContent = p3; $('endp3').style.display = p3 ? '' : 'none';
+      $('endstats').textContent = `TIME ${fmt(S.played)} · DEEP KEPT LIT · ${M.reach || '—'} PHONES ON THE MESH · READING ${S.sent && S.sent.ok ? 'VERIFIED' : 'SENT'} · NOTES ${S.notes.length}/${NOTE_IDS.length}`;
       $('end').style.display = 'flex';
       C.blip(523, 2.5, 'sine', .1); C.blip(659, 2.5, 'sine', .08, .4); C.blip(784, 3, 'sine', .07, .8);
     }
@@ -422,7 +463,7 @@
     function newGame() {
       S = fresh(); save();
       for (const p of pickups) p.g.visible = true;
-      recomputeLife(); M.dark = false; M.crew = null; M.route = null; M.routeT = M.replyT = M.bcT = -1; M.droneI = 0;
+      recomputeLife(); leakWorld(); M.dark = false; M.crew = null; M.route = null; M.routeT = M.replyT = M.bcT = -1; M.droneI = 0;
       runForecasts(); M.cd = M.cd0;
       meshGroup.visible = false; probe.visible = false; siteMark.visible = false; upBeam.material.opacity = 0;
       hotRings.forEach(r => r.material.opacity = 0); drone.position.copy(pos('S', HATCH[0] + 1.5, HATCH[1] + 1.5, 2.2)); updateSite();
@@ -441,7 +482,7 @@
       // --- Act 1: countdown + brownout
       if (S.stage < 3 && playing && !C.travelling) {
         introT += dt;
-        if (S.stage === 0 && introT > 1.2 && !S.flags.introBuzz) { S.flags.introBuzz = 1; phoneAlert('1:52 · STRATA', true); toast('STRATA', 'Forecast: the Deep goes dark in ' + fmt(M.cd) + '. Raise your phone (Tab).', 6000); }
+        if (introT > .3 && !S.flags.introBuzz) { S.flags.introBuzz = 1; phoneAlert('1:52 · STRATA', true); toast('STRATA', 'Forecast: the Deep goes dark in ' + fmt(M.cd) + '. Raise your phone (Tab).', 6000); }
         if (S.applied !== 'str') { M.cd = Math.max(0, M.cd - dt); if (M.cd === 0 && !M.dark) { M.dark = true; toast('STRATA', 'Feed 3 tripped. The Deep is dark. Strata can still reroute and rebalance.', 6000); C.blip(80, 1.4, 'sawtooth', .09); rerender(); } }
       }
       if (S.stage === 0 && C.state === 'phone') setStage(1);
@@ -451,7 +492,12 @@
       liftLamp.material.color.setHex(S.stage >= 3 ? 0x40ff70 : 0xff3020); liftLamp.material.opacity = S.stage >= 3 ? .7 : (.45 + .4 * (Math.sin(t * 4) > 0 ? 1 : 0));
 
       // --- Act 2: network cut + mesh animation
-      if (S.stage >= 3 && !S.netCut && S.played - (S.flags.powerAt || 0) > NET_CUT_DELAY) netCut();
+      if (S.stage >= 3 && !S.netCut) {
+        const since = S.played - (S.flags.powerAt || 0), onLife = C.state === 'phone' && phone().state.scr === 'life';
+        if (!S.flags.supplies && since > 2 && S.applied === 'str') { S.flags.supplies = 1; save(); phoneAlert('WATER · LEAK', true); toast('STRATA', 'Leak on the L5 water loop. Life support needs a look: open Life.', 5200); renderObj(); rerender(); }
+        if ((since > NET_CUT_DELAY && !onLife) || since > LIFE_HOLD) netCut();
+      }
+      if (C.state === 'phone' && phone().state.scr === 'ret' && !S.flags.retOpened) { S.flags.retOpened = 1; save(); }
       if (S.netCut) meshGroup.visible = C.level === 'D';
       if (S.stage === 3 && C.state === 'phone' && phone().state.scr === 'mesh') setStage(4);
       if (meshGroup.visible) {
@@ -525,6 +571,7 @@
         n.g.rotation.y += diff * Math.min(1, dt * 3);
         ud.head.rotation.x = Math.sin(t * .7 + n.ph) * .04;
       }
+      if (C.level === 'D' && drip.visible) { for (let i = 0; i < dripN; i++) { dripY[i] = (dripY[i] + dt * .9) % 1; dripPos[i * 3] = .55 + Math.sin(i * 7.1) * .02; dripPos[i * 3 + 1] = 2.7 - dripY[i] * dripY[i] * 2.7; dripPos[i * 3 + 2] = .1; } dripGeo.attributes.position.needsUpdate = true; }
       for (const p of pickups) if (p.l === C.level && p.g.visible) { p.mesh.position.y = Math.sin(t * 2 + p.ph) * .03; p.mesh.rotation.y += dt * .4; p.hl.material.opacity = .4 + Math.sin(t * 3 + p.ph) * .15; }
 
       // objective distance + live phone numbers
@@ -561,8 +608,52 @@
     for (const p of pickups) if (S.flags['got_' + p.id]) p.g.visible = false;
     renderInv(); renderObj();
 
+    // ------------------------------------------------------------ filming hook: jump straight to any stage in a consistent state
+    async function jump(n, opts = {}) {
+      n = Math.max(0, Math.min(12, n | 0));
+      const keep = { notes: S.notes, flags: Object.fromEntries(Object.entries(S.flags).filter(([k]) => k.startsWith('got_'))), played: S.played, deaths: S.deaths };
+      S = Object.assign(fresh(), keep);
+      S.flags.introBuzz = 1;
+      if (n >= 2) S.bypass = true;
+      if (n >= 3) { S.applied = 'str'; S.flags.powerAt = S.played - 60; S.flags.supplies = 1; }
+      if (n >= 4) S.netCut = true;
+      if (n >= 5) S.broadcast = true;
+      if (opts.life) S.life = { leak: true, lamps: true, triage: true };
+      S.stage = n; M.preview = 'str'; M.dark = false; M.cd = n >= 3 ? Infinity : M.cd0;
+      recomputeLife(); leakWorld();
+      meshGroup.visible = S.netCut; M.route = null; M.routeT = M.replyT = -1;
+      if (n >= 6) {
+        const text = 'I’m safe. — Ava, L4 Works · hatch override in your Strata';
+        let sigHex = '', ok = false; if (M.keys.ava) { sigHex = await E.sig.sign(M.keys.ava, text); ok = await E.sig.verify(M.keys.ava, text, sigHex); }
+        S.ava = { state: 'replied', text, sig: sigHex, ok };
+      }
+      if (n >= 8) { S.mapped = tour.slice(); updateSite(); }
+      if (n >= 9) { S.crew = true; M.crew = E.crew(); }
+      if (n >= 10) { S.planted = true; S.probeAt = [M.site.x, M.site.y]; probe.position.copy(pos('S', M.site.x, M.site.y, 0)); probe.visible = true; }
+      else probe.visible = false;
+      siteMark.visible = n === 9;
+      hotRings.forEach((r, i) => r.material.opacity = S.mapped.includes(i) ? .5 : 0);
+      if (n >= 11) {
+        const m = E.surface.doseMult(HOT, S.probeAt[0], S.probeAt[1]), p = E.surface.protection(m);
+        const reading = `probe-07 · ${new Date().toISOString().slice(0, 19)}Z · dose ×${m.toFixed(2)} background · unprotected ${p[0].label} · sealed suit ${p[1].label}`;
+        let sigHex = '', ok = false; if (M.keys.probe) { sigHex = await E.sig.sign(M.keys.probe, reading); ok = await E.sig.verify(M.keys.probe, reading, sigHex); }
+        S.sent = { reading, sig: sigHex, ok }; M.sendT = 0;
+      } else upBeam.material.opacity = 0;
+      if (n >= 12) S.ended = true;
+      drone.position.copy(pos('S', HATCH[0] + 1.5, HATCH[1] + 1.5, 2.2));
+      save();
+      const lvl = n >= 7 && n <= 11 ? 'S' : 'D';
+      C.respawn(); C.setLevel(lvl);
+      if (lvl === 'S') { C.P.x = 0; C.P.y = 1.5; C.P.yaw = Math.PI; }
+      if (n >= 3 && n <= 5 && lvl === 'D') { C.P.x = -9; C.P.y = .9; }
+      meshStatus(); if (S.broadcast) { M.bcHop = M.hop.slice(); M.bcT = 99; }
+      const p = phone(); p.badge(n >= 6 ? 'AVA · SAFE' : n >= 4 ? 'NET CUT · STRATA' : 'STRATA · TAB', n >= 4 && n < 6); p.go(n >= 11 ? 'ret' : n >= 7 ? 'surface' : n >= 4 ? 'mesh' : n >= 2 ? 'share' : 'home');
+      renderObj(); renderInv();
+      return { stage: S.stage, level: lvl };
+    }
+
     const api = {
-      update, interact, canTravel, deny, onLevel, onDeath, newGame,
+      update, interact, canTravel, deny, onLevel, onDeath, newGame, jump,
       busy: () => !!(busy.dlg || busy.note),
       prompt: () => { if (busy.dlg || busy.note) return { n: '', d: '' }; const it = nearestInteractable(); return it ? { n: it.n, d: it.d } : null; },
       radScale: () => 1,

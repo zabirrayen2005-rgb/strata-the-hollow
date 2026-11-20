@@ -60,6 +60,7 @@
   #obj { left: 22px; top: 40px; max-width: min(360px, 60vw); }
   #obj .l { font-size: 10.5px; letter-spacing: .26em; text-transform: uppercase; color: var(--amber); }
   #obj .t { margin-top: 4px; font-size: 13.5px; line-height: 1.4; text-shadow: 0 1px 8px rgba(0,0,0,.9); }
+  #obj .o { margin-top: 6px; font-size: 12px; color: var(--dim); letter-spacing: .04em; }
   #obj .d { margin-top: 2px; font-size: 11.5px; color: var(--dim); letter-spacing: .08em; font-variant-numeric: tabular-nums; }
   #inv { left: 22px; bottom: 38px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 46vw; }
   #inv .chip { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; padding: 5px 9px; border-radius: 4px;
@@ -121,7 +122,7 @@
 <div class="hud" id="cross"></div>
 <div class="hud" id="loc"></div>
 <div class="hud" id="keys"><kbd>W A S D</kbd> move · <kbd>Shift</kbd> run · <kbd>E</kbd> interact · <kbd>F</kbd> flashlight · <kbd>Tab</kbd> Strata · <kbd>Esc</kbd> pause<br>No mouse lock? Drag to look</div>
-<div class="hud" id="obj"><div class="l">Objective</div><div class="t" id="objt"></div><div class="d" id="objd"></div></div>
+<div class="hud" id="obj"><div class="l">Objective</div><div class="t" id="objt"></div><div class="d" id="objd"></div><div class="o" id="objo"></div></div>
 <div class="hud" id="inv"></div>
 <div class="hud" id="toast"></div>
 <div class="hud" id="dlg"><div class="n" id="dlgn"></div><div class="t" id="dlgt"></div><div class="h" id="dlgh"></div></div>
@@ -135,6 +136,7 @@
   <h1>STRATA</h1><div class="tag">The truth, and the way up</div>
   <p>The Deep stayed lit. When the Directorate cut the network, the residents’ phones carried the messages instead. Ava is safe.</p>
   <p>A signed reading from the surface is on every screen below: hours in a suit, not minutes. Twelve volunteers are already suiting up, and the Deep goes up first.</p>
+  <p id="endp3"></p>
   <div class="st" id="endstats"></div>
   <button id="endgo">Keep exploring</button><button id="endnew" class="alt">New game</button>
 </div></div>
