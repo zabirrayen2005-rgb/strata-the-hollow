@@ -10,7 +10,7 @@
     const fmt = s => { if (!isFinite(s)) return '—'; s = Math.max(0, Math.round(s)); return (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0'); };
     const pct = x => (x * 100 < 1 && x > 0 ? (x * 100).toFixed(1) : Math.round(x * 100)) + '%';
     const BG = { home: '#0f2236', power: '#2a1c08', life: '#082436', mesh: '#0a2433', share: '#0b2a20', surface: '#1f1236', ret: '#3a2a10' };
-    let ask = null;                                  // offline AI: selected question
+    let askDraft = '', askFocus = false, askBusy = null; const askLog = [];   // Ask Strata: draft, focus, pending question, last 3 answers
 
     const pw = (...items) => `<div class="pw">POWERED BY ${items.map(i => `<b>${i}</b>`).join(' · ')}</div>`;
     const cop = (text, who = 'COPILOT-STYLE ASSISTANT') => `<div class="cop"><div class="who">✦ ${who}</div>${text}</div>`;
@@ -62,6 +62,7 @@
           <div class="mono" style="font-size:10.5px;letter-spacing:.2em;color:${fixed ? '#8ff0c4' : '#ffcf7a'}">${fixed ? 'DEEP POWER SECURED' : dark ? 'THE DEEP IS DARK' : 'DEEP GOES DARK IN'}</div>
           <div data-live="cd" style="font:700 52px/1 Rajdhani,sans-serif;color:#fff4dd">${fixed ? '6 H+' : fmt(M.cd)}</div>
           <div style="font-size:12px;color:#a9b6cc">${M.fc ? (fixed ? pct(M.fcBypassStr.pDark) + ' of 500 forecasts dark' : pct(M.fc.pDark) + ' of 500 forecasts') : ''}</div></div></div>
+      <button type="button" class="askbar" data-act="askopen">✦ Ask Strata…</button>
       <div style="position:relative;padding:16px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <button type="button" class="tile" data-go="power" style="border-color:rgba(255,176,32,.35)">${ic('bolt', '#ffb020')}<b>POWER</b><span>${fixed ? 'Fair split live' : s.bypass ? 'Bypassed · split needed' : 'Feed 3 overheating'}</span></button>
         <button type="button" class="tile" data-go="mesh" style="border-color:rgba(95,208,255,.35)">${ic('mesh', '#5fd0ff')}<b>MESH</b><span>${s.ava && s.ava.state === 'replied' ? 'Ava: “I’m safe”' : s.netCut ? 'Network cut · mesh up' : 'Standby'}</span></button>
@@ -202,12 +203,55 @@
       o += `<text x="${(+X(0) + 9)}" y="${(+Y(-1.9) + 4)}" fill="#9fdcff" font-size="10" font-family="JetBrains Mono,monospace">LIFT RELAY</text>`;
       return `<svg width="330" height="300" viewBox="0 0 330 300" style="display:block" role="img" aria-label="Map of resident phones in the Deep">${o}</svg>`;
     }
-    const QA = {
-      lift: ['Is the lift running?', () => S().stage >= 3 ? 'Yes. The fair split keeps the lift motors above their minimum. It serves every level and, with an override, the hatch.' : 'Not yet. The Deep is on reserve power and the lift motors are cut first.'],
-      ava: ['Where is Ava?', () => S().ava && S().ava.state === 'replied' ? 'L4 Works. Her last message is signed and verified: “I’m safe.”' : 'Last seen on L4 Works, two levels up. Send a check-in over the mesh.'],
-      dark: ['How long until dark?', () => S().applied === 'str' ? 'The Deep is lit. In ' + pct(1 - M.fcBypassStr.pDark) + ' of forecast runs it stays lit for the next 6 minutes and beyond.' : 'About ' + fmt(M.cd) + ', unless power is rebalanced.'],
-      surf: ['Is the surface safe?', () => S().sent ? 'The signed probe reading says: hours in a sealed suit, minutes without one. Not “lethal everywhere”.' : 'Unknown. Nobody below can read the hatch probes yet.'],
-    };
+    // ------------------------------------------------------------ ASK STRATA: offline intent router over the live engines
+    const appliedMode = () => S().applied === 'str' ? 'str' : 'dir';
+    const INTENTS = [
+      { id: 'dark', kw: ['dark', 'blackout', 'power', 'lights', 'outage'], src: 'forecast() · allocate()', a: () => S().applied === 'str'
+        ? `The Deep is lit. With Strata's split it stays above its minimum in <b>${pct(1 - M.fcBypassStr.pDark)}</b> of 500 forecast runs.`
+        : M.dark ? `The Deep is dark. Feed 3 tripped. Approve the bypass and apply the fair split on Power and Fair share.` : `About <b>${fmt(M.cd)}</b> until the Deep goes dark. Feed 3 trips in <b>${pct(M.fc.pDark)}</b> of 500 runs.` },
+      { id: 'split', kw: ['fair', 'split', 'share', 'ration'], src: 'allocate()', a: () => { const al = E.allocate(78, appliedMode()), lo = al.reduce((a, b) => a.ofDemand < b.ofDemand ? a : b);
+        return `${S().applied === 'str' ? "Strata's fair split" : "The Directorate's split"} gives the lowest share to <b>${lo.name}</b>: <b>${Math.round(lo.ofDemand * 100)}%</b> of its demand. ${lo.belowMin ? 'That is below the 55% survival minimum.' : 'Every level is above the 55% survival minimum.'}`; } },
+      { id: 'water', kw: ['water', 'drink', 'leak', 'thirsty'], src: 'life() · allocate()', a: () => { const L = M.life;
+        return `<b>${d1(L.waterDays)} days</b> at 15 L per person. ${L.leak ? 'The L5 leak is still open: ' + n0(L.leak) + ' L a day.' : 'The L5 leak is isolated.'} ${L.dry ? '<b>' + n0(L.dry) + '</b> people are cut off from pumped water.' : 'Nobody is cut off from pumped water.'}`; } },
+      { id: 'food', kw: ['food', 'eat', 'hungry', 'farm', 'ration', 'bread'], src: 'life()', a: () => `<b>${d0(M.life.foodDays)} days</b> of food. The L3 farms grow <b>${Math.round(M.life.farmShare * 100)}%</b> of what everyone needs${S().life.lamps ? ', with grow lamps on the night window.' : '.'}` },
+      { id: 'meds', kw: ['medicine', 'insulin', 'inhaler', 'antibiotic', 'clinic', 'drug'], src: 'life()', a: () => { const m = M.life.meds;
+        return m.map(x => `${x.name}: <b>${x.worst.toFixed(1)} days</b> at worst (${x.worstAt})`).join('. ') + `. Insulin fridge ${m[1].coldOk ? 'powered' : '<b>without power</b>'}.`; } },
+      { id: 'air', kw: ['air', 'breathe', 'cooling', 'heat', 'hot', 'temperature'], src: 'heat() · allocate()', a: () => { const H = E.heat(E.allocate(78, appliedMode())), on = H.filter(h => h.on).length, d = H[5];
+        return `Air pumps on in <b>${on} of 6</b> levels. The Deep is at ${d.now} °C now and <b>${d.in6h} °C</b> in 6 hours${d.hoursToLimit !== null ? ', past the 35 °C limit after ' + d.hoursToLimit + ' hours' : ''}.`; } },
+      { id: 'lungs', kw: ['lung', 'cough', 'sun', 'light', 'vitamin', 'lamp'], src: 'life()', a: () => { const sun = M.life.sun.filter(x => x.coveredBy);
+        return `Worst lungs: <b>L6 Deep (${M.life.air[5].lung})</b>. Tonight's ${M.life.bays} sun-lamp bays go to ${sun.filter(x => x.coveredBy === 1).map(x => x.name).join(', ') || 'nobody yet'} first.`; } },
+      { id: 'space', kw: ['crowded', 'space', 'room', 'cramped', ['why does the deep', 3], ['deep go first', 3]], src: 'life()', a: () => { const sp = M.life.space, lo = sp.reduce((a, b) => a.m2 < b.m2 ? a : b);
+        return `<b>${lo.name}</b> has the least room: <b>${lo.m2.toFixed(1)} m²</b> per person, under the 3.5 m² minimum. It also has the worst lungs (${M.life.air[5].lung}). That is why it goes up first.`; } },
+      { id: 'tunnels', kw: ['corridor', 'tunnel', 'crowd', 'shift', 'queue'], src: 'tunnels()', a: () => { const T = E.tunnels(true), T0 = E.tunnels(false);
+        return `Staggered shift changes cut the peak corridor crowd from <b>${n0(T0.peak)}</b> to <b>${n0(T.peak)}</b>, ${Math.round(T.load * 100)}% of capacity. One level per 20-minute window, the Deep last.`; } },
+      { id: 'net', kw: ['network', 'signal', 'internet', 'mesh', 'offline'], src: 'mesh.flood()', a: () => S().netCut ? `The Directorate network is down. <b>${M.inRange}</b> phones are in range of you and <b>${M.reach}</b> are on the mesh.` : 'The Directorate network is still up. The mesh is on standby.' },
+      { id: 'ava', kw: ['ava', 'daughter', 'family', 'find'], src: 'mesh.route() · sig.verify()', a: () => S().ava && S().ava.state === 'replied' ? 'L4 Works. Her last message is signed and verified: <b>“I’m safe.”</b>' : 'Last seen on L4 Works, two levels up. Send a check-in over the mesh.' },
+      { id: 'surf', kw: ['surface', 'safe', 'radiation', 'outside', 'dose'], src: 'surface.protection()', a: () => { const p = E.surface.protection(M.dose || 1);
+        return (S().sent ? 'The signed probe reading says: ' : 'Probe model at background dose: ') + `<b>${p[0].label}</b> unprotected, <b>${p[1].label}</b> in a sealed suit, ${p[2].label} in a dome. Not “lethal everywhere”.`; } },
+      { id: 'crew', kw: [['who goes', 2], 'first', 'crew', 'volunteer'], src: 'crew()', a: () => { const c = M.crew || E.crew();
+        return `<b>${c.pick.length}</b> of ${c.considered} volunteers: best lungs, age near 32, fewer dependents, with 3 engineers, 2 medics and 4 scouts. Top pick: ${c.pick[0].name} (${c.pick[0].skill}).`; } },
+      { id: 'ret', kw: ['when', 'return', 'move up', 'lift', 'everyone'], src: 'returnPlan()', a: () => `Four waves through one lift at ${M.plan.liftPerDay} a day. The Deep and the Warrens are up by day <b>${M.plan.waves[2].end}</b>, everyone by day <b>${M.plan.allUp}</b>.` },
+      { id: 'trust', kw: ['trust', 'lie', 'proof', 'verify', 'signed', 'fake'], src: 'sig.verify()', a: () => S().sent ? `The probe reading is signed with ECDSA P-256 (key ${M.fp.probe || '…'}) and <b>${S().sent.ok ? 'verifies' : 'did not verify'}</b>. Change one character and the check fails.` : `Messages on the mesh are signed with ECDSA P-256. ${S().ava && S().ava.ok ? "Ava's reply verified against her key " + (M.fp.ava || '') + '.' : 'Nothing signed has arrived yet.'}` },
+    ];
+    const FALLBACK = 'I can answer about power, water, food, medicine, air, lungs, space, tunnels, the network, Ava, the surface, the crew and the return. Try: “How long will the water last?”';
+    function route(q) {
+      const t = q.toLowerCase(); let best = null, bs = 0;
+      for (const it of INTENTS) { let sc = 0; for (const k of it.kw) { const [w, wt] = Array.isArray(k) ? k : [k, 1]; if (t.includes(w)) sc += wt; } if (sc > bs) { bs = sc; best = it; } }
+      return best ? { a: best.a(), src: best.src } : { a: FALLBACK, src: null };
+    }
+    function askNow(q) {
+      q = (q || '').trim(); if (!q) return;
+      askBusy = q; askDraft = ''; P.render();
+      setTimeout(() => { const r = route(q); askLog.unshift({ q, a: r.a, src: r.src }); askLog.length = Math.min(askLog.length, 3); askBusy = null; P.render(); }, 400);
+    }
+    const CHIPS = ['Is the lift running?', 'Where is Ava?', 'How long until dark?', 'Is the surface safe?', 'How long will the water last?', 'Who gets sun-lamp slots?', 'Is there enough insulin?', 'Why does the Deep go first?'];
+    function askCard() {
+      return `<div class="card" id="askcard" style="border-color:rgba(95,208,255,.25)"><div class="lbl">ASK STRATA · WORKS WITH THE NETWORK DOWN</div>
+        <div class="askrow"><input id="askq" type="text" autocomplete="off" placeholder="Ask anything about the Hollow…" value="${askDraft.replace(/"/g, '&quot;')}" aria-label="Ask Strata"><button type="button" data-act="asksend">ASK</button></div>
+        <div style="margin-top:10px">${CHIPS.map(c => `<button type="button" class="chipq" data-act="ask" data-arg="${c}">${c}</button>`).join('')}</div>
+        ${askBusy ? `<div class="qa"><div class="q">${askBusy}</div><div class="a dots"><i></i><i></i><i></i></div></div>` : ''}
+        ${askLog.map(x => `<div class="qa"><div class="q">${x.q.replace(/</g, '&lt;')}</div><div class="a">${x.a}</div>${x.src ? `<span class="src">computed from ${x.src}</span>` : ''}</div>`).join('')}</div>`;
+    }
     function mesh() {
       const s = S(); story.act('mesh');
       let body = hd('PROBLEM #7 · NETWORK CUT  +  #8 FAMILIES', '#9fdcff', 'Resident mesh', '#eaf7ff', 'Phones pass messages hand to hand. No towers, no Directorate.');
@@ -224,10 +268,9 @@
             <div style="display:flex;justify-content:space-between;align-items:center"><span style="letter-spacing:.1em;color:${r ? '#3ddc97' : '#ffcf7a'}">${r ? (s.ava.ok ? 'AVA · SIGNATURE VALID' : 'AVA · UNVERIFIED') : 'ROUTING TO AVA… ' + (M.route ? M.route.path.length - 1 + ' HOPS' : '')}</span>${ic('lock', r ? '#3ddc97' : '#ffcf7a', 18)}</div>
             ${r ? `<div style="font:600 15px Inter,sans-serif;color:#eafff5;margin:6px 0">“${s.ava.text.split(' — ')[0]}”</div><div>key   ECDSA P-256 · ${M.fp.ava || '…'}</div><div>sig   ${s.ava.sig ? s.ava.sig.slice(0, 24) + '…' : '—'}</div>` : `<div>Through ${M.route ? M.route.path.length - 2 : '…'} phones to the lift relay, then up the shaft to L4.</div>`}</div>`;
         }
-        body += `<div class="card" style="border-color:rgba(95,208,255,.25)"><div class="lbl">ASK STRATA · WORKS WITH THE NETWORK DOWN</div><div style="margin-top:10px">${Object.entries(QA).map(([k, q]) => `<button type="button" class="chipq" data-act="ask" data-arg="${k}">${q[0]}</button>`).join('')}</div>
-          ${ask ? `<div style="font-size:12.5px;line-height:1.5;color:#dbe6ff;margin-top:4px">${QA[ask][1]()}</div>` : ''}</div>`;
-        body += pw('MetroStar HorizonHunt-style offline AI · on-device', 'ECDSA P-256');
       }
+      body += askCard();
+      body += pw('MetroStar HorizonHunt-style offline AI · on-device', 'ECDSA P-256');
       return body;
     }
 
@@ -297,6 +340,18 @@
       render: scr => (R[scr] || home)(),
       dots: () => ({ life: !!M.life && (cutOff(M.life) > 0 || !!M.life.leak) }),
       live(el) {
+        const inp = el.querySelector('#askq');
+        if (inp && !inp.dataset.wired) {
+          inp.dataset.wired = 1;
+          const stop = e => e.stopPropagation();
+          inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); askNow(inp.value); } else if (e.key === 'Escape') { e.preventDefault(); inp.blur(); } });
+          inp.addEventListener('keyup', stop); inp.addEventListener('keypress', stop);
+          inp.addEventListener('input', () => { askDraft = inp.value; });
+          inp.addEventListener('focus', () => { askFocus = true; });
+          inp.addEventListener('blur', () => { askFocus = false; });
+          inp.addEventListener('click', stop); inp.addEventListener('mousedown', stop);
+          if (askFocus) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); const c = el.querySelector('#askcard'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
+        }
         el.querySelectorAll('.lsi[data-on]').forEach(n => { const off = n.dataset.on === '0'; if (n.classList.contains('off') !== off) { void n.offsetWidth; n.classList.toggle('off', off); } });
         const set = (k, v) => { const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
         set('cd', S().applied === 'str' ? '6 H+' : fmt(M.cd));
@@ -310,7 +365,9 @@
       act(a, el) {
         const arg = el && el.dataset.arg;
         if (a === 'go-share') { P.go('share'); return; }
-        if (a === 'ask') { ask = arg; P.render(); return; }
+        if (a === 'ask') { askNow(arg); return; }
+        if (a === 'asksend') { const i = el.closest('#sp').querySelector('#askq'); askNow(i ? i.value : askDraft); return; }
+        if (a === 'askopen') { askFocus = true; P.go('mesh'); return; }
         if (a === 'stagger') { stagger = arg === '1'; P.render(); return; }
         if (a === 'why') { const c = document.getElementById('crowd'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         if (a === 'heat') { heatDir = arg === '1'; P.render(); return; }

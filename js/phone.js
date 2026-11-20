@@ -76,6 +76,15 @@
   #sp .lvchips{margin:12px 16px 0;display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
   #sp .lvchips button{min-height:34px;border-radius:10px;border:1px solid;font:700 13px Rajdhani,sans-serif;letter-spacing:.06em;cursor:pointer;background:rgba(14,20,31,.9)}
   #sp .tip{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:rgba(8,12,20,.95);border:1px solid rgba(120,150,200,.3);font-size:12px;color:#c8d4e6;line-height:1.5}
+  #sp .askrow{display:flex;gap:8px;margin-top:10px}
+  #sp .askrow input{flex:1;min-width:0;min-height:44px;border-radius:12px;border:1px solid rgba(95,208,255,.45);background:rgba(4,8,14,.9);color:#eaf4ff;padding:0 12px;font:500 14px Inter,sans-serif;outline:none}
+  #sp .askrow input:focus{border-color:#5fd0ff;box-shadow:0 0 0 3px rgba(95,208,255,.18)}
+  #sp .askrow button{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid #5fd0ff;background:linear-gradient(90deg,#0e3b56,#2a1757);color:#fff;font:700 14px Rajdhani,sans-serif;letter-spacing:.1em;cursor:pointer}
+  #sp .qa{margin-top:10px;padding-top:10px;border-top:1px solid rgba(120,150,200,.14)}
+  #sp .qa .q{font-size:12px;color:#8fa0bb} #sp .qa .a{font-size:13px;line-height:1.5;color:#dbe6ff;margin-top:4px} #sp .qa .a b{color:#fff}
+  #sp .qa .src{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;border:1px solid rgba(120,150,200,.3);font:500 11px 'JetBrains Mono',monospace;color:#9fb3d1}
+  @keyframes spDots{0%,80%,100%{opacity:.25}40%{opacity:1}} #sp .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9fdcff;margin-right:4px;animation:spDots 1s infinite} #sp .dots i:nth-child(2){animation-delay:.15s} #sp .dots i:nth-child(3){animation-delay:.3s}
+  #sp .askbar{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);margin:14px 16px 0;min-height:46px;padding:0 14px;border-radius:14px;border:1px solid rgba(95,208,255,.4);background:rgba(4,8,14,.85);color:#9fb3d1;font:500 14px Inter,sans-serif;cursor:text;text-align:left}
   #sp .lc{display:flex;align-items:center;gap:8px;font:700 13px Rajdhani,sans-serif;letter-spacing:.12em}
   #spBadge.hot{color:#ffd2cc;border-color:rgba(255,90,77,.6);background:rgba(40,8,8,.85)}
   `;
