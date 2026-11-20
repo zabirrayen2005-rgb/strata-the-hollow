@@ -29,7 +29,29 @@
     const lifeBefore = over => E.life(E.allocate(78, 'str'), Object.assign({ leakFixed: S().life.leak, nightLamps: S().life.lamps, triage: S().life.triage }, over));
     const needSplit = 'Apply the fair split first';
     const cutOff = L => Math.max(L.dry, L.hungry);
+    let confirmDir = false;                         // one-tap confirm before the Directorate split
     let stripShown = null, chipTip = null, heatDir = false, stagger = null;   // stagger null = default by split                  // last strip state drawn (for the cross-fade), tapped level chip
+    // live feed temperatures: feed 3 drifts from 86 °C toward its 100 °C trip as the countdown runs, until it is bypassed
+    function liveFeeds() {
+      const k = S().bypass || !isFinite(M.cd) ? 0 : 1 - M.cd / M.cd0;
+      return E.FEEDS.map((f, i) => i === 2 && !S().bypass ? { ...f, temp: Math.min(f.trip, f.temp + (f.trip - f.temp) * k) } : f);
+    }
+    function limitsCard(alloc) {
+      const L = E.limits(alloc, liveFeeds(), S().bypass ? ['F3'] : []), ok = L.filter(x => x.ok).length;
+      return `<div class="card" style="border-color:${ok === 3 ? GREEN : RED}66"><div class="lbl" style="display:flex;justify-content:space-between"><span>LIMITS SET BY RESIDENTS</span><span style="color:${ok === 3 ? GREEN : RED}">${ok} / 3 LIMITS MET</span></div>
+        ${L.map(x => `<div style="display:grid;grid-template-columns:22px 1fr;gap:8px;margin-top:9px;align-items:start"><span style="font:700 16px/1 Inter,sans-serif;color:${x.ok ? GREEN : RED}">${x.ok ? '✓' : '✕'}</span>
+          <div><div style="font-size:13px;color:#e6eefb">${x.text}</div>${x.ok ? '' : `<div style="font-size:12px;color:${RED};margin-top:2px">${x.why}</div>`}</div></div>`).join('')}
+        <div class="why" style="color:#8fa0bb">The AI can only act inside these lines. Residents set them.</div></div>`;
+    }
+    function feedGauge() {
+      const f = liveFeeds()[2], X = t => ((t - 60) / 45 * 300 + 12).toFixed(1);
+      return `<div class="card" style="border-color:rgba(255,90,77,.35)"><div class="lbl" style="display:flex;justify-content:space-between"><span>FEED 3 TEMPERATURE</span><span class="mono" data-live="f3t" style="color:${f.temp > 95 ? RED : AMBER}">${f.temp.toFixed(1)} °C</span></div>
+        <svg width="326" height="58" viewBox="0 0 326 58" style="display:block;margin-top:8px" role="img" aria-label="Feed 3 temperature against its limits">
+        <rect x="12" y="18" width="300" height="12" rx="6" fill="rgba(255,255,255,.06)"/><rect data-live-w="f3" x="12" y="18" width="${(+X(f.temp) - 12).toFixed(1)}" height="12" rx="6" fill="${f.temp > 95 ? RED : AMBER}"/>
+        <line x1="${X(95)}" y1="10" x2="${X(95)}" y2="38" stroke="#fff" stroke-dasharray="3 3"/><line x1="${X(100)}" y1="8" x2="${X(100)}" y2="40" stroke="${RED}" stroke-width="2.5"/>
+        <text x="${X(95)}" y="52" text-anchor="end" fill="#c8d4e6" font-size="11" font-family="JetBrains Mono,monospace">LIMIT 95</text><text x="${(+X(100) + 2)}" y="52" fill="${RED}" font-size="11" font-family="JetBrains Mono,monospace">TRIP 100</text>
+        <text x="${((+X(95) + +X(100)) / 2)}" y="8" text-anchor="middle" fill="#ffcf7a" font-size="11" font-family="JetBrains Mono,monospace">5 °C safety margin</text></svg></div>`;
+    }
     function lifeStrip(mode) {
       const L = E.life(E.allocate(78, mode)), from = stripShown || mode;
       const Lf = E.life(E.allocate(78, from));
@@ -156,8 +178,8 @@
       if (!by) body += cop(`Feed 3 is at ${F[2].temp} °C and climbing toward its ${F[2].trip} °C trip point. In <b>${pct(fc.pDark)}</b> of ${fc.runs} runs it trips within ${fc.horizon / 60} minutes (median <b>${fmt(fc.median)}</b>). When it trips, the Directorate’s priority order cuts the Deep first, below the ${Math.round(E.SURVIVAL * 100)}% it needs for air pumps and the lift.`);
       else if (!fixed) body += cop(`Feed 3 is bypassed, so it can no longer trip. That leaves <b>${F[0].cap + F[1].cap} MW</b> for <b>${E.LEVELS.reduce((a, l) => a + l.demand, 0)} MW</b> of demand. Under the Directorate’s order the Deep is still dark in <b>${pct(M.fcBypassDir.pDark)}</b> of runs.${M.lifeDir && cutOff(M.lifeDir) ? ` If the Directorate split goes ahead, L5 and L6 also lose pumped water and air: <b>${n0(cutOff(M.lifeDir))} people</b>.` : ''} Choose how to share it.`);
       else body += cop(`Verified: re-ran ${show.runs} forecasts with the fair split. The Deep stays above its survival minimum in <b>${pct(1 - show.pDark)}</b> of runs. Lamps in the Deep are steady and the lift has power.`);
-      body += `<div class="card" style="border-color:rgba(255,176,32,.25)"><div class="lbl">LIMITS SET BY RESIDENTS · THE AI CAN’T CROSS THEM</div><div class="kv" style="margin-top:8px">
-        <span>Every level ≥ survival minimum</span><b>${Math.round(E.SURVIVAL * 100)}% of demand</b><span>Air pumps and cooling</span><b>never cut</b><span>Feed temperature</span><b>≤ 95 °C</b></div></div>`;
+      if (!by) body += feedGauge();
+      body += limitsCard(E.allocate(by ? 78 : 120, fixed ? 'str' : 'dir'));
       if (!by) body += btn('bypass', 'APPROVE: BYPASS FEED 3 ✓ WITHIN LIMITS', '#ffb020', 'linear-gradient(90deg,#5a3a06,#7a2a10)');
       else if (!fixed) body += btn('go-share', 'CHOOSE THE SPLIT →', '#3ddc97', 'linear-gradient(90deg,#0c3b2a,#0f4d3a)');
       else body += btn('none', 'POWER SECURED ✓', '#3ddc97', 'linear-gradient(90deg,#0c3b2a,#0f4d3a)', true);
@@ -180,11 +202,18 @@
       body += `<div class="card" style="display:flex;flex-direction:column;gap:11px"><div class="lbl" style="display:flex;justify-content:space-between"><span>POWER BY LEVEL</span><span>MW</span></div>${list}
         <div style="font-size:11px;color:#8fa0bb">White tick: survival minimum (${Math.round(E.SURVIVAL * 100)}%) for air pumps, cooling and the lift.</div></div>`;
       body += lifeStrip(mode);
+      body += limitsCard(rows);
       body += `<div class="row3"><div><div class="lbl">BELOW MIN</div><div class="big" style="color:${below.length ? '#ff5a4d' : '#3ddc97'}">${below.length}</div></div><div><div class="lbl">DEEP DARK</div><div class="big" style="color:${fc && fc.pDark > .05 ? '#ff5a4d' : '#3ddc97'}">${fc ? pct(fc.pDark) : '—'}</div></div><div><div class="lbl">RUNS</div><div class="big" style="color:#c9d4e6">${fc ? fc.runs : 500}</div></div></div>`;
       body += cop(mode === 'dir' ? `The Directorate serves levels top-down at full demand until power runs out. <b>${below.join(' and ') || 'No level'}</b> fall${below.length === 1 ? 's' : ''} below the survival minimum, and the Deep goes dark in <b>${fc ? pct(fc.pDark) : '—'}</b> of runs.`
         : `Same ${total} MW. Strata gives every level its survival minimum first, then shares the rest by unmet need. No level drops below the line, and the Deep goes dark in only <b>${fc ? pct(fc.pDark) : '—'}</b> of runs.`);
       if (!s.bypass) body += `<div class="note" style="background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.35);color:#ffe8c2">First approve the feed 3 bypass on the Power screen.</div>`;
-      else if (s.applied !== 'str') body += btn('apply', mode === 'str' ? 'APPLY STRATA SPLIT' : 'APPLY DIRECTORATE SPLIT', mode === 'str' ? '#3ddc97' : '#ff5a4d', mode === 'str' ? 'linear-gradient(90deg,#0c3b2a,#0f4d3a)' : 'linear-gradient(90deg,#4a1010,#6a1a10)', false, mode);
+      else if (s.applied !== 'str') {
+        const broken = E.limits(rows, liveFeeds(), ['F3']).filter(x => !x.ok).length;
+        if (mode === 'dir' && confirmDir) body += `<div class="note" style="background:rgba(255,90,77,.1);border:2px solid ${RED};color:#ffd2cc"><div style="font-size:13px;line-height:1.5">This cuts air and water to <b>${n0(cutOff(E.life(rows)))}</b> people. Strata will not recommend it.</div>
+          <div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="btn" data-act="canceldir" style="margin:0;flex:1;width:auto;border-color:rgba(255,255,255,.3);background:rgba(14,20,31,.9)">CANCEL</button><button type="button" class="btn" data-act="confirmdir" style="margin:0;flex:1;width:auto;border-color:${RED};background:linear-gradient(90deg,#4a1010,#6a1a10)">APPLY ANYWAY</button></div></div>`;
+        else body += mode === 'str' ? btn('apply', 'APPLY STRATA SPLIT', GREEN, 'linear-gradient(90deg,#0c3b2a,#0f4d3a)', false, 'str')
+          : `<button type="button" class="btn" data-act="apply" data-arg="dir" style="border:2px solid ${RED};background:linear-gradient(90deg,#4a1010,#6a1a10)">APPLY ANYWAY — BREAKS ${broken} LIMIT${broken === 1 ? '' : 'S'}</button>`;
+      }
       else body += btn('none', 'FAIR SPLIT LIVE ✓', '#3ddc97', 'linear-gradient(90deg,#0c3b2a,#0f4d3a)', true);
       body += pw('Caelon Prism-style AI · acts only within resident limits');
       return body;
@@ -355,6 +384,7 @@
         el.querySelectorAll('.lsi[data-on]').forEach(n => { const off = n.dataset.on === '0'; if (n.classList.contains('off') !== off) { void n.offsetWidth; n.classList.toggle('off', off); } });
         const set = (k, v) => { const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
         set('cd', S().applied === 'str' ? '6 H+' : fmt(M.cd));
+        { const f = liveFeeds()[2]; set('f3t', f.temp.toFixed(1) + ' °C'); const w = el.querySelector('[data-live-w="f3"]'); if (w) w.setAttribute('width', ((f.temp - 60) / 45 * 300).toFixed(1)); }
         if (M.life) { set('cut', n0(cutOff(M.life))); set('water', d1(M.life.waterDays)); set('food', d0(M.life.foodDays)); }
         set('range', String(M.inRange)); if (S().broadcast) set('reach', String(M.reach));
         if (P.state.level === 'The surface') {
@@ -368,6 +398,10 @@
         if (a === 'ask') { askNow(arg); return; }
         if (a === 'asksend') { const i = el.closest('#sp').querySelector('#askq'); askNow(i ? i.value : askDraft); return; }
         if (a === 'askopen') { askFocus = true; P.go('mesh'); return; }
+        if (a === 'apply' && arg === 'dir' && !confirmDir) { confirmDir = true; P.render(); return; }
+        if (a === 'canceldir') { confirmDir = false; P.render(); return; }
+        if (a === 'confirmdir') { confirmDir = false; P.buzz(); story.act('apply', 'dir'); return; }
+        if (a === 'preview') confirmDir = false;
         if (a === 'stagger') { stagger = arg === '1'; P.render(); return; }
         if (a === 'why') { const c = document.getElementById('crowd'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         if (a === 'heat') { heatDir = arg === '1'; P.render(); return; }

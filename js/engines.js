@@ -60,7 +60,9 @@
         }
       }
     }
-    return levels.map((l, i) => ({ id: l.id, name: l.name, mw: out[i], share: out[i] / total, ofDemand: out[i] / l.demand, belowMin: out[i] < l.demand * SURVIVAL - 1e-6 }));
+    const res = levels.map((l, i) => ({ id: l.id, name: l.name, mw: out[i], share: out[i] / total, ofDemand: out[i] / l.demand, belowMin: out[i] < l.demand * SURVIVAL - 1e-6 }));
+    if (mode === 'str' && total >= levels.reduce((a, l) => a + l.demand * SURVIVAL, 0) - 1e-6 && res.some(r => r.belowMin)) console.error('Strata split broke a limit', total);
+    return res;
   }
 
   // ------------------------------------------------------------ Monte Carlo blackout forecast
