@@ -28,6 +28,7 @@
         if (a === 'light') C.flash();
         if (a === 'run') { C.touchIn.run = !C.touchIn.run; btn.classList.toggle('on', C.touchIn.run); }
         if (a === 'pause') C.pause();
+        if (a === 'phone' && C.phone && (C.phone.isOpen || C.phoneCanOpen())) C.phone.toggle();
         return;
       }
       if (C.state !== 'play') return;

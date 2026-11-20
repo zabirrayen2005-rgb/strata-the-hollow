@@ -18,6 +18,7 @@ Someone up there knows something the Deep doesn't. Find out what, and make sure 
 | W A S D, hold Shift to run | Drag on the left side, **Run** button | Walk / run |
 | **E** | **E · Use** | Talk, pick up, read. Hold to use machines |
 | 1 / 2 / 3 inside the lift | Tap a floor button | The Deep / Director level / Surface |
+| **Tab** (or click it, bottom right) | **Strata** button | Raise the Strata phone. Esc or tap outside to put it away |
 | F | **Light** | Flashlight |
 | Esc | **II** | Pause |
 
@@ -30,6 +31,21 @@ Someone up there knows something the Deep doesn't. Find out what, and make sure 
 5. Ride to the **surface** (press 3) and follow the road to the red light: the **beacon relay**.
 6. **Hold E** to transmit the Director's logs to every screen in the Deep, then get back to the lift before your air runs out.
 7. Return to the Deep to see the ending. After that, free roam is unlocked.
+
+### The Strata phone
+
+Press **Tab** to raise the Strata phone. It's the team's resident app, built around the hackathon's problems:
+
+| Screen | Problem it answers |
+|---|---|
+| Home | **#1 Blackouts**: next-blackout forecast from 500 grid simulations |
+| Power | **#1 Blackouts**: reroute a failing feed before the lift loses power |
+| Mesh | **#7 Network cut**: messages hop phone to phone with no towers |
+| Fair share | **#2 Rationing**: Directorate split vs. Strata's survival-minimum split |
+| Surface | **#13 Is the surface safe?**: signed probe readings vs. the Directorate's claim |
+| Return plan | **#15 The way up**: moving 48,000 residents in 4 waves through one lift |
+
+The world keeps running while the phone is up. On the surface, radiation still counts down.
 
 There are 4 collectible notes (lore). Progress saves automatically in the browser. Use **New game** on the menu to start over.
 
@@ -52,6 +68,7 @@ index.html          page, HUD and menus (all CSS lives here)
 js/game.js          engine: renderer, post-processing, world loading, movement, collision, lift, radiation, audio
 js/story.js         gameplay: objectives, inventory, characters and dialogue, notes, beacon, ending, save
 js/touch.js         touch controls (virtual joystick, look-drag, buttons)
+js/phone.js         Strata phone UI (the team's resident app: 6 screens)
 data/levels.js      level layout: collision shapes, zones, doors, lamps, radiation hotspots
 assets/world.js     3D world (gzipped glTF, base64), authored in Blender
 assets/textures.js  material textures (base64 JPEG)

@@ -100,6 +100,9 @@
   #tbtns button.on, #tbtns button[data-a="use"] { border-color: var(--amber); color: var(--amber); }
   #tpause { position: absolute; right: 18px; top: 60px; width: 44px; height: 44px; border-radius: 50%; font: inherit; color: var(--ink);
     background: rgba(10,10,12,.55); border: 1px solid rgba(255,255,255,.25); }
+  #tphone { position: absolute; right: 70px; top: 60px; height: 44px; padding: 0 14px; border-radius: 22px; font: inherit; font-size: 11px; font-weight: 650; letter-spacing: .14em;
+    text-transform: uppercase; color: #9fdcff; background: rgba(8,12,20,.6); border: 1px solid rgba(95,208,255,.45); }
+  body.touch #sp.mini, body.touch #spBadge { display: none; }
   #menu .tctl { display: none; }
   body.touch #menu .ctl { display: none; } body.touch #menu .tctl { display: grid; }
   body.touch #keys, body.touch #cross { display: none; }
@@ -117,7 +120,7 @@
 <canvas id="c"></canvas>
 <div class="hud" id="cross"></div>
 <div class="hud" id="loc"></div>
-<div class="hud" id="keys"><kbd>W A S D</kbd> move · <kbd>Shift</kbd> run · <kbd>E</kbd> interact · <kbd>F</kbd> flashlight · <kbd>Esc</kbd> pause<br>No mouse lock? Drag to look</div>
+<div class="hud" id="keys"><kbd>W A S D</kbd> move · <kbd>Shift</kbd> run · <kbd>E</kbd> interact · <kbd>F</kbd> flashlight · <kbd>Tab</kbd> Strata · <kbd>Esc</kbd> pause<br>No mouse lock? Drag to look</div>
 <div class="hud" id="obj"><div class="l">Objective</div><div class="t" id="objt"></div><div class="d" id="objd"></div></div>
 <div class="hud" id="inv"></div>
 <div class="hud" id="toast"></div>
@@ -125,6 +128,7 @@
 <div id="note"><div class="paper"><h2 id="notet"></h2><div class="b" id="noteb"></div><div class="h">E / click — put it down</div></div></div>
 <div id="touch"><div id="stick"><div id="nub"></div></div>
   <button id="tpause" data-a="pause" aria-label="Pause">II</button>
+  <button id="tphone" data-a="phone" aria-label="Strata phone">Strata</button>
   <div id="tbtns"><button data-a="light">Light</button><button data-a="run">Run</button><button data-a="use" style="grid-column: span 2; width: 100%; border-radius: 32px">E · Use</button></div>
 </div>
 <div id="end"><div class="card">
@@ -150,6 +154,7 @@
     <kbd>W A S D</kbd><span>Walk · hold <b>Shift</b> to run</span>
     <kbd>E</kbd><span>Talk, pick up, read · hold to use machines</span>
     <kbd>1 2 3</kbd><span>Inside the lift: the Deep, the Director level, the surface</span>
+    <kbd>Tab</kbd><span>Raise the Strata phone (or click it, bottom right)</span>
     <kbd>F</kbd><span>Flashlight</span>
     <kbd>Esc</kbd><span>Pause</span>
   </div>
@@ -158,6 +163,7 @@
     <kbd>Right</kbd><span>Drag on the right side to look around</span>
     <kbd>E · Use</kbd><span>Talk, pick up, read · hold to use machines</span>
     <kbd>Lift</kbd><span>Tap a floor button inside the lift</span>
+    <kbd>Strata</kbd><span>Tap the Strata button (top right) to raise the phone</span>
     <kbd>Run · Light</kbd><span>Toggle running and the flashlight</span>
   </div>
   <div class="go" id="go">Click to enter</div><button id="newgame">New game</button>
@@ -177,6 +183,7 @@
 <script src="assets/textures.js"></script>
 <script src="assets/lightmaps.js"></script>
 <script src="assets/world.js"></script>
+<script src="js/phone.js"></script>
 <script src="js/story.js"></script>
 <script src="js/touch.js"></script>
 <script src="js/game.js"></script>

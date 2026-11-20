@@ -265,6 +265,7 @@
   let level = 'D', state = 'menu', health = 100, surfT = 0, deathT = 0, travelling = false, flashTarget = 0;
   const liftDoor = { D: 0, R: 0, S: 0 }; // 0 closed .. 1 open
   const aptDoor = {};
+  const SP = window.StrataPhone;   // team's Strata phone (js/phone.js)
   for (const l of LV) for (const d of G[l].doors) aptDoor[d.name] = 0;
 
   function setLevel(l) {
@@ -273,7 +274,7 @@
     scene.fog = new THREE.FogExp2(L.fog, L.fogD); scene.background = new THREE.Color(L.fog);
     finalPass.uniforms.exposure.value = L.expo; finalPass.uniforms.vig.value = L.vig; finalPass.uniforms.tint.value.set(...L.tint);
     bloom.strength = L.bloom[0]; bloom.radius = L.bloom[1]; bloom.threshold = L.bloom[2];
-    $('loc').innerHTML = '<b>' + G[l].name + '</b>';
+    $('loc').innerHTML = '<b>' + G[l].name + '</b>'; if (SP) SP.setLevel(G[l].name);
     $('rad').style.display = l === 'S' ? 'block' : 'none';
     if (l !== 'S') { health = 100; }
     surfT = 0; ambTo(l); banner(G[l].name, G[l].sub);
@@ -291,6 +292,7 @@
   let story = null;   // story layer (js/story.js), created once the world is ready
   async function travel(to) {
     if (travelling || to === level || state !== 'play') return;
+    if (SP && SP.isOpen) SP.close();
     const why = story && story.canTravel(to);
     if (why) { story.deny(why); return; }
     travelling = true; ding();
@@ -303,6 +305,7 @@
     travelling = false;
   }
   async function die() {
+    if (SP && SP.isOpen) SP.close();
     state = 'dead'; deathT = 0;
     if (story) story.onDeath();
     $('deaths').textContent = 'Survived ' + fmtT(surfT) + ' on the surface';
@@ -346,6 +349,23 @@
     }
   }
 
+  // ------------------------------------------------------------ Strata phone (from the team's game_v7)
+  function phoneOpen() {
+    if (!SP || state !== 'play' || travelling) return;
+    state = 'phone';
+    try { document.exitPointerLock(); } catch (e) {}
+    blip(1760, .05, 'sine', .06); blip(2350, .06, 'sine', .05, .06);
+  }
+  function phoneClose() {
+    if (state !== 'phone') return;
+    state = 'play'; if (!dragMode) lock();
+    blip(1500, .05, 'sine', .05);
+  }
+  const phoneCanOpen = () => state === 'play' && !travelling && !(story && story.busy());
+  if (SP) SP.hooks({ canOpen: phoneCanOpen, onOpen: () => { if (state === 'play') phoneOpen(); }, onClose: () => phoneClose(),
+    onTap: () => blip(2600, .025, 'square', .025), onAct: (a, st) => { if (story && story.onPhone) story.onPhone(a, st); } });
+  function phoneVisible() { if (SP) SP.show(state === 'play' || state === 'phone'); }
+
   // ------------------------------------------------------------ input
   const lockOK = () => document.pointerLockElement === canvas;
   function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
@@ -359,7 +379,7 @@
     ambTo(level);
   });
   document.addEventListener('pointerlockchange', () => {
-    if (!lockOK() && state === 'play' && !dragMode) { state = 'paused'; $('menu').style.display = 'flex'; $('go').textContent = 'Click to resume'; }
+    if (!lockOK() && state === 'play' && !dragMode && !(SP && SP.isOpen)) { state = 'paused'; $('menu').style.display = 'flex'; $('go').textContent = 'Click to resume'; }
   });
   let dragMode = false, drag = null;
   canvas.addEventListener('mousedown', e => { if (state === 'play' && !lockOK() && !dragMode) { drag = [e.clientX, e.clientY]; } });
@@ -371,6 +391,8 @@
   });
   addEventListener('keydown', e => {
     key[e.code] = true;
+    if (e.code === 'Tab') { e.preventDefault(); if (SP && (state === 'phone' || phoneCanOpen())) SP.toggle(); return; }
+    if (e.code === 'Escape' && state === 'phone') { SP.close(); return; }
     if (state !== 'play') return;
     if (e.code === 'KeyE' && !e.repeat && story) { story.interact(); return; }
     if (story && story.busy()) return;
@@ -439,10 +461,12 @@
       aptDoor[d.name] = clamp(aptDoor[d.name] + (w ? 1 : -1) * dt * 1.4, 0, 1);
       o.rotation.y = o.userData.rot0 + ease(aptDoor[d.name]) * d.open;
     }
+    phoneVisible();
     // prompts
     const cab = inCab();
     liftEl.style.display = (cab && state === 'play') ? 'flex' : 'none';
-    if (cab) { liftEl.querySelectorAll('button').forEach(b => b.classList.toggle('here', b.dataset.l === level)); setPrompt('', ''); }
+    if (state === 'phone') setPrompt('', '');
+    else if (cab) { liftEl.querySelectorAll('button').forEach(b => b.classList.toggle('here', b.dataset.l === level)); setPrompt('', ''); }
     else if (story && story.prompt()) { const sp = story.prompt(); setPrompt(sp.n, sp.d); }
     else {
       let best = null, bd = 1e9;
@@ -453,12 +477,12 @@
     // surface radiation
     const U = finalPass.uniforms;
     let radK = 0;
-    if (level === 'S' && (state === 'play' || state === 'dead')) {
+    if (level === 'S' && (state === 'play' || state === 'dead' || state === 'phone')) {
       let mult = 1;
       for (const h of g.hotspots) { const d = Math.hypot(P.x - h[0], P.y - h[1]); const r = h[2] * 2.2; if (d < r) mult += 3.2 * h[3] * Math.pow(1 - d / r, 1.5); }
       if (cab && liftDoor.S < .2) mult *= .2;
       const shield = story ? story.radScale() : 1; mult *= shield;
-      if (state === 'play' && !travelling) {
+      if ((state === 'play' || state === 'phone') && !travelling) {
         surfT += dt; health -= dt * (100 / 300) * mult;
         if (health <= 0) { health = 0; die(); }
       }
@@ -528,6 +552,7 @@
     flash: () => { flashOn = !flashOn; blip(2400, .04, 'square', .05); },
     pause: () => { if (state !== 'play') return; state = 'paused'; $('menu').style.display = 'flex'; $('go').textContent = 'Tap to resume'; },
     setDragMode: v => { dragMode = v; },
+    phone: SP || null, phoneCanOpen,
   };
   story = window.StoryInit ? window.StoryInit(ctx) : null;
   if (window.TouchInit) window.TouchInit(ctx, () => story);

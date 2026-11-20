@@ -330,6 +330,10 @@
     return {
       update, interact, canTravel, deny, onLevel, onDeath, newGame,
       busy: () => !!(busy.dlg || busy.note),
+      onPhone(a, st) {   // Strata phone actions (js/phone.js) echoed into the world
+        if (a === 'sign' && st.signed) toast('STRATA', C.level === 'S' ? 'Probe reading signed on the surface itself. The mesh carries it down to all six levels.' : 'Probe reading signed and pushed over the mesh to all six levels.', 4200);
+        if (a === 'broadcast') toast('MESH', 'Message passing hand to hand, phone to phone. No towers, no Directorate.', 3600);
+      },
       prompt: () => { if (busy.dlg || busy.note) return { n: '', d: '' }; const it = nearestInteractable(); return it ? { n: it.n, d: it.d } : null; },
       radScale: () => has('shield') ? SHIELD_SCALE : 1,
       hasSave: () => S.stage > 0 || S.notes.length > 0,
