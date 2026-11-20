@@ -69,6 +69,13 @@
   #sp .why{font-size:13px;line-height:1.45;color:#c8d4e6;margin-top:8px}
   #sp .segbar{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:10px} #sp .segbar i{height:10px;border-radius:3px}
   #sp .foot{margin:10px 16px 0;font-size:11px;line-height:1.5;color:#8fa0bb}
+  #sp .lsg{display:grid;grid-template-columns:70px repeat(4,1fr);gap:6px 4px;align-items:center;margin-top:10px;font-size:12px;color:#c8d4e6}
+  #sp .lsi{position:relative;display:flex;justify-content:center;transition:color .25s,opacity .25s;color:#3ddc97}
+  #sp .lsi::after{content:'';position:absolute;left:30%;right:30%;top:50%;height:2px;background:#ff5a4d;transform:rotate(-35deg);opacity:0;transition:opacity .25s}
+  #sp .lsi.off{color:#ff5a4d;opacity:.9} #sp .lsi.off::after{opacity:1}
+  #sp .lvchips{margin:12px 16px 0;display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+  #sp .lvchips button{min-height:34px;border-radius:10px;border:1px solid;font:700 13px Rajdhani,sans-serif;letter-spacing:.06em;cursor:pointer;background:rgba(14,20,31,.9)}
+  #sp .tip{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:rgba(8,12,20,.95);border:1px solid rgba(120,150,200,.3);font-size:12px;color:#c8d4e6;line-height:1.5}
   #sp .lc{display:flex;align-items:center;gap:8px;font:700 13px Rajdhani,sans-serif;letter-spacing:.12em}
   #spBadge.hot{color:#ffd2cc;border-color:rgba(255,90,77,.6);background:rgba(40,8,8,.85)}
   `;

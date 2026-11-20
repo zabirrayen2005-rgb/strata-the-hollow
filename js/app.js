@@ -29,6 +29,18 @@
     const lifeBefore = over => E.life(E.allocate(78, 'str'), Object.assign({ leakFixed: S().life.leak, nightLamps: S().life.lamps, triage: S().life.triage }, over));
     const needSplit = 'Apply the fair split first';
     const cutOff = L => Math.max(L.dry, L.hungry);
+    let stripShown = null, chipTip = null;                  // last strip state drawn (for the cross-fade), tapped level chip
+    function lifeStrip(mode) {
+      const L = E.life(E.allocate(78, mode)), from = stripShown || mode;
+      const Lf = E.life(E.allocate(78, from));
+      const cut = cutOff(L);
+      const rows = L.air.map((a, i) => { const was = Lf.air[i].pumps;
+        return `<div>${E.LEVELS[i].name}</div>${['drop', 'fan', 'leaf', 'pill'].map(k => `<span class="lsi${was ? '' : ' off'}" data-on="${a.pumps ? 1 : 0}">${ic(k, 'currentColor', 16)}</span>`).join('')}`; }).join('');
+      stripShown = mode;
+      return `<div class="card" style="border-color:rgba(120,150,200,.25)"><div class="lbl">WHAT THIS SPLIT DOES TO LIFE SUPPORT</div>
+        <div class="lsg"><span></span><span class="lbl" style="text-align:center">WATER</span><span class="lbl" style="text-align:center">AIR</span><span class="lbl" style="text-align:center">FOOD</span><span class="lbl" style="text-align:center">CLINIC</span>${rows}</div>
+        <div style="margin-top:12px;font:700 20px Rajdhani,sans-serif;letter-spacing:.03em;color:${cut ? RED : GREEN}">${cut ? n0(cut) + ' people lose water and air' : 'Everyone keeps water and air'}</div></div>`;
+    }
 
     // ------------------------------------------------------------ HOME
     function home() {
@@ -57,7 +69,7 @@
         <button type="button" class="tile" data-go="surface" style="border-color:rgba(194,123,255,.4)">${ic('sun', '#c27bff')}<b>SURFACE</b><span>${s.sent ? 'Reading signed + sent' : s.stage >= 6 ? 'Hatch override ready' : 'Sealed by Directorate'}</span></button></div>
       <div class="card" style="border-color:rgba(120,160,255,.3)"><div class="lbl">DIGITAL TWIN OF THE HOLLOW</div>
         <div class="row3" style="margin:8px 0 0"><div><div class="lbl">TWINS</div><div class="big" style="color:#9fc0ff">${tw.twins.length}</div></div><div><div class="lbl">LINKS</div><div class="big" style="color:#9fc0ff">${tw.rels.length}</div></div><div><div class="lbl">MODELS</div><div class="big" style="color:#9fc0ff">${tw.models.length}</div></div></div>
-        <div class="mono" style="margin-top:8px;font-size:10px;color:#7f93b5;line-height:1.5">dtmi:strata:PowerFeed;1 → powers → dtmi:strata:Level;1<br>Levels, feeds, rooms, lamps and the lift, built from the level data.</div></div>
+        <div class="mono" style="margin-top:8px;font-size:10px;color:#7f93b5;line-height:1.5">dtmi:strata:PowerFeed;1 → powers → Level → feeds → WaterLoop<br>Levels, feeds, water loops, farms, clinics, lamps and the lift, built from the level data.</div></div>
       ${pw('Azure Digital Twins model (DTDL)', 'MetroStar Comet-style UI')}`;
     }
 
@@ -65,7 +77,9 @@
     function lifeScr() {
       const s = S(), L = M.life, Ld = M.lifeDir, str = s.applied === 'str', cut = cutOff(L);
       let body = hd('PROBLEM #4 WATER · #12 FOOD · #10 MEDICINE', '#4fc3f7', 'Life support', '#e6f6ff', 'One grid feeds the pumps, the farms and the clinic. Strata keeps all three running for everyone.');
-      body += '<!--LIFESTRIP-->';
+      body += `<div class="lvchips">${L.air.map((a, i) => `<button type="button" data-act="chip" data-arg="${i}" style="border-color:${a.pumps ? GREEN : RED};color:${a.pumps ? GREEN : RED}">L${i + 1}</button>`).join('')}</div>`;
+      if (chipTip !== null) { const i = chipTip, a = L.air[i], w = L.water[i];
+        body += `<div class="tip"><b>${E.LEVELS[i].name}</b> · pumps ${a.pumps ? '<b style="color:' + GREEN + '">on</b>' : '<b style="color:' + RED + '">off</b>'} · water recovery ${Math.round(w.recovery * 100)}% · lung index ${a.lung}</div>`; }
       body += `<div class="card" style="border-color:${cut ? RED : GREEN}66"><div class="lbl">PEOPLE CUT OFF FROM WATER AND AIR</div>${verdict(n0(cut), 'people', cut ? RED : GREEN, 'cut')}
         <div class="why" style="color:#8fa0bb">Directorate split: <b style="color:${RED}">${n0(cutOff(Ld))}</b></div></div>`;
       // water
@@ -119,7 +133,7 @@
       body += `<div class="row3">${F.map((f, i) => { const bad = i === 2 && !by; const byp = i === 2 && by;
         return `<div style="${bad ? 'border-color:rgba(255,90,77,.55)' : byp ? 'border-color:rgba(95,208,255,.5)' : ''}"><div class="lbl">${f.name.toUpperCase()}</div><div class="big" style="color:${bad ? '#ff5a4d' : byp ? '#5fd0ff' : '#3ddc97'}">${byp ? 'BYPASS' : bad ? f.temp + '°C' : f.cap + ' MW'}</div></div>`; }).join('')}</div>`;
       if (!by) body += cop(`Feed 3 is at ${F[2].temp} °C and climbing toward its ${F[2].trip} °C trip point. In <b>${pct(fc.pDark)}</b> of ${fc.runs} runs it trips within ${fc.horizon / 60} minutes (median <b>${fmt(fc.median)}</b>). When it trips, the Directorate’s priority order cuts the Deep first, below the ${Math.round(E.SURVIVAL * 100)}% it needs for air pumps and the lift.`);
-      else if (!fixed) body += cop(`Feed 3 is bypassed, so it can no longer trip. That leaves <b>${F[0].cap + F[1].cap} MW</b> for <b>${E.LEVELS.reduce((a, l) => a + l.demand, 0)} MW</b> of demand. Under the Directorate’s order the Deep is still dark in <b>${pct(M.fcBypassDir.pDark)}</b> of runs. Choose how to share it.`);
+      else if (!fixed) body += cop(`Feed 3 is bypassed, so it can no longer trip. That leaves <b>${F[0].cap + F[1].cap} MW</b> for <b>${E.LEVELS.reduce((a, l) => a + l.demand, 0)} MW</b> of demand. Under the Directorate’s order the Deep is still dark in <b>${pct(M.fcBypassDir.pDark)}</b> of runs.${M.lifeDir && cutOff(M.lifeDir) ? ` If the Directorate split goes ahead, L5 and L6 also lose pumped water and air: <b>${n0(cutOff(M.lifeDir))} people</b>.` : ''} Choose how to share it.`);
       else body += cop(`Verified: re-ran ${show.runs} forecasts with the fair split. The Deep stays above its survival minimum in <b>${pct(1 - show.pDark)}</b> of runs. Lamps in the Deep are steady and the lift has power.`);
       body += `<div class="card" style="border-color:rgba(255,176,32,.25)"><div class="lbl">LIMITS SET BY RESIDENTS · THE AI CAN’T CROSS THEM</div><div class="kv" style="margin-top:8px">
         <span>Every level ≥ survival minimum</span><b>${Math.round(E.SURVIVAL * 100)}% of demand</b><span>Air pumps and cooling</span><b>never cut</b><span>Feed temperature</span><b>≤ 95 °C</b></div></div>`;
@@ -144,6 +158,7 @@
       body += `<div class="seg" role="group" aria-label="Allocation"><button type="button" data-act="preview" data-arg="dir" style="${mode === 'dir' ? 'background:rgba(255,90,77,.18);color:#ffb4ab' : ''}">DIRECTORATE</button><button type="button" data-act="preview" data-arg="str" style="${mode === 'str' ? 'background:rgba(61,220,151,.18);color:#8ff0c4' : ''}">STRATA</button></div>`;
       body += `<div class="card" style="display:flex;flex-direction:column;gap:11px"><div class="lbl" style="display:flex;justify-content:space-between"><span>POWER BY LEVEL</span><span>MW</span></div>${list}
         <div style="font-size:11px;color:#8fa0bb">White tick: survival minimum (${Math.round(E.SURVIVAL * 100)}%) for air pumps, cooling and the lift.</div></div>`;
+      body += lifeStrip(mode);
       body += `<div class="row3"><div><div class="lbl">BELOW MIN</div><div class="big" style="color:${below.length ? '#ff5a4d' : '#3ddc97'}">${below.length}</div></div><div><div class="lbl">DEEP DARK</div><div class="big" style="color:${fc && fc.pDark > .05 ? '#ff5a4d' : '#3ddc97'}">${fc ? pct(fc.pDark) : '—'}</div></div><div><div class="lbl">RUNS</div><div class="big" style="color:#c9d4e6">${fc ? fc.runs : 500}</div></div></div>`;
       body += cop(mode === 'dir' ? `The Directorate serves levels top-down at full demand until power runs out. <b>${below.join(' and ') || 'No level'}</b> fall${below.length === 1 ? 's' : ''} below the survival minimum, and the Deep goes dark in <b>${fc ? pct(fc.pDark) : '—'}</b> of runs.`
         : `Same ${total} MW. Strata gives every level its survival minimum first, then shares the rest by unmet need. No level drops below the line, and the Deep goes dark in only <b>${fc ? pct(fc.pDark) : '—'}</b> of runs.`);
@@ -241,6 +256,7 @@
       render: scr => (R[scr] || home)(),
       dots: () => ({ life: !!M.life && (cutOff(M.life) > 0 || !!M.life.leak) }),
       live(el) {
+        el.querySelectorAll('.lsi[data-on]').forEach(n => { const off = n.dataset.on === '0'; if (n.classList.contains('off') !== off) { void n.offsetWidth; n.classList.toggle('off', off); } });
         const set = (k, v) => { const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
         set('cd', S().applied === 'str' ? '6 H+' : fmt(M.cd));
         if (M.life) { set('cut', n0(cutOff(M.life))); set('water', d1(M.life.waterDays)); set('food', d0(M.life.foodDays)); }
@@ -254,6 +270,7 @@
         const arg = el && el.dataset.arg;
         if (a === 'go-share') { P.go('share'); return; }
         if (a === 'ask') { ask = arg; P.render(); return; }
+        if (a === 'chip') { chipTip = chipTip === +arg ? null : +arg; P.render(); return; }
         if (a === 'none') return;
         P.buzz();
         story.act(a, arg);
