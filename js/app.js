@@ -29,7 +29,7 @@
     const lifeBefore = over => E.life(E.allocate(78, 'str'), Object.assign({ leakFixed: S().life.leak, nightLamps: S().life.lamps, triage: S().life.triage }, over));
     const needSplit = 'Apply the fair split first';
     const cutOff = L => Math.max(L.dry, L.hungry);
-    let stripShown = null, chipTip = null, heatDir = false;                  // last strip state drawn (for the cross-fade), tapped level chip
+    let stripShown = null, chipTip = null, heatDir = false, stagger = null;   // stagger null = default by split                  // last strip state drawn (for the cross-fade), tapped level chip
     function lifeStrip(mode) {
       const L = E.life(E.allocate(78, mode)), from = stripShown || mode;
       const Lf = E.life(E.allocate(78, from));
@@ -261,8 +261,29 @@
       const pl = M.plan, s = S();
       let body = hd('PROBLEM #15 · THE WAY UP', '#ffd9a0', 'Return plan', '#fff4e0', `One lift, ${pl.total.toLocaleString()} residents. Strata plans the move in waves.`);
       body += `<div class="row3" style="margin-top:14px"><div><div class="lbl">LIFT / DAY</div><div class="big" style="color:#ffd27a">${pl.liftPerDay}</div></div><div><div class="lbl">WAVES</div><div class="big" style="color:#ffd27a">${pl.waves.length}</div></div><div><div class="lbl">ALL UP BY</div><div class="big" style="color:#ffd27a">Day ${pl.allUp}</div></div></div>`;
+      // crowding (#6 SPACE)
+      const sp = (M.life || E.life(E.allocate(78, 'str'))).space, maxM = 11, minX = 3.5 / maxM * 100;
+      body += `<div id="crowd">` + cardOpen('#c9b6ff', 'SPACE · #6', 'apt') + verdict(sp[5].m2.toFixed(1), 'm² per person in the Deep', sp[5].crowded ? RED : GREEN);
+      body += `<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">${sp.map(x => `<div style="display:grid;grid-template-columns:76px 1fr 64px;gap:8px;align-items:center;font-size:12px;color:#c8d4e6"><span>${x.name}</span>
+        <div class="bar" style="height:12px"><i style="width:${(x.m2 / maxM * 100).toFixed(1)}%;background:${x.crowded ? RED : '#8fa0bb'}"></i><div style="position:absolute;left:${minX.toFixed(1)}%;top:-2px;bottom:-2px;border-left:2px dashed rgba(255,255,255,.6)"></div></div>
+        <span class="mono" style="text-align:right;color:${x.crowded ? RED : '#c8d4e6'}">${x.m2.toFixed(1)}${x.crowded ? ' ⚠' : ''}</span></div>`).join('')}</div>
+        <div class="why" style="color:#8fa0bb">Dashed line: 3.5 m² minimum. ${sp.filter(x => x.crowded).map(x => x.name).join(', ')} OVERCROWDED.</div>
+        <div class="why">The Deep has the least room and the worst lungs. That is why it goes up first.</div></div></div>`;
+      // corridors (#5 TUNNELS)
+      const stg = stagger === null ? s.applied === 'str' : stagger, T = E.tunnels(stg), T0 = E.tunnels(false), T1 = E.tunnels(true);
+      const maxP = T0.peak, BH = 120, cap = T.capacity, yCap = (BH - cap / maxP * BH).toFixed(1);
+      const bw = stg ? 40 : 120, gap = stg ? 10 : 0;
+      body += cardOpen('#ffcf7a', 'TUNNELS · #5', 'mesh') + verdict(n0(T.peak), 'people at peak in the corridors', T.load > 1 ? RED : GREEN);
+      body += `<div class="dl" style="${stg ? '' : 'background:rgba(255,90,77,.1);border-color:rgba(255,90,77,.35);color:#ffb4ab'}"><s>${n0(T0.peak)}</s> → <b>${n0(T1.peak)}</b> peak</div>`;
+      body += `<div class="seg" style="margin:10px 0 0" role="group"><button type="button" data-act="stagger" data-arg="0" style="${!stg ? 'background:rgba(255,90,77,.18);color:#ffb4ab' : ''}">ALL AT ONCE</button><button type="button" data-act="stagger" data-arg="1" style="${stg ? 'background:rgba(61,220,151,.18);color:#8ff0c4' : ''}">STAGGERED</button></div>`;
+      body += `<svg width="326" height="${BH + 18}" viewBox="0 0 326 ${BH + 18}" style="display:block;margin-top:10px" role="img" aria-label="People per 20-minute window">
+        ${T.windows.map((w, i) => { const h = w.people / maxP * BH, x = stg ? 8 + i * (bw + gap) : 100; return `<rect x="${x}" y="${(BH - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="3" fill="${w.people > cap ? RED : GREEN}" fill-opacity=".85"/><text x="${x + bw / 2}" y="${BH + 13}" text-anchor="middle" fill="#8fa0bb" font-size="10" font-family="JetBrains Mono,monospace">${stg ? 'L' + (i + 1) : 'ALL'}</text>`; }).join('')}
+        <line x1="0" y1="${yCap}" x2="326" y2="${yCap}" stroke="#fff" stroke-dasharray="4 4" stroke-opacity=".7"/><text x="322" y="${(+yCap - 4)}" text-anchor="end" fill="#c8d4e6" font-size="10" font-family="JetBrains Mono,monospace">CAPACITY ${n0(cap)}</text></svg>`;
+      if (stg) body += `<table class="tbl" style="margin-top:6px">${T.windows.map(w => { const m = 360 + w.start; return `<tr><td>${w.who}</td><td class="mono" style="text-align:right;color:#c8d4e6">${String(m / 60 | 0).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}</td><td class="mono" style="text-align:right;color:#8fa0bb">${n0(w.people)}</td></tr>`; }).join('')}</table>
+        <div class="why" style="color:#8fa0bb">Strata sends each level its window over the mesh.</div>`;
+      body += '</div>' + cop(`Shift changes are staggered by level, so the main corridors never carry more than <b>${Math.round(T1.load * 100)}%</b> of their capacity, down from <b>${(T0.load).toFixed(1)}×</b> when everyone moves at once. The same windows are used for the lift during the return.`);
       body += `<div class="card" style="padding:14px 14px 6px;border-color:rgba(255,176,32,.28)">${pl.waves.map(w => `<div class="wave" style="cursor:default">
-        <span class="n" style="border-color:${w.color};color:${w.color}">${w.n}</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:700 17px Rajdhani,sans-serif;letter-spacing:.03em">${w.name}</span><span style="font-size:12px;color:#a9b6cc;line-height:1.4">${w.who} · ${w.people.toLocaleString()}</span></span>
+        <span class="n" style="border-color:${w.color};color:${w.color}">${w.n}</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:700 17px Rajdhani,sans-serif;letter-spacing:.03em">${w.name}</span><span style="font-size:12px;color:#a9b6cc;line-height:1.4">${w.who} · ${w.people.toLocaleString()}${w.n === 3 ? ' · <span role="button" data-act="why" style="color:#9fdcff;text-decoration:underline;cursor:pointer">why?</span>' : ''}</span></span>
         <span class="mono" style="font-size:11px;color:${w.color};white-space:nowrap">DAY ${w.start}${w.end > w.start ? '–' + w.end : ''}</span></div>`).join('')}</div>`;
       body += cop(`The levels that suffered most go up first, the opposite of the Directorate’s order. At ${pl.liftPerDay} people a day the Deep and the Warrens are up by day ${pl.waves[2].end}, and everyone by day ${pl.allUp}. Strata keeps rebalancing power below for everyone still waiting.`);
       if (s.stage >= 11 && !s.ended) body += btn('finish', 'STRATA. THE TRUTH, AND THE WAY UP.', '#ffb020', 'linear-gradient(90deg,#5a3a06,#2a1757)');
@@ -290,6 +311,8 @@
         const arg = el && el.dataset.arg;
         if (a === 'go-share') { P.go('share'); return; }
         if (a === 'ask') { ask = arg; P.render(); return; }
+        if (a === 'stagger') { stagger = arg === '1'; P.render(); return; }
+        if (a === 'why') { const c = document.getElementById('crowd'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         if (a === 'heat') { heatDir = arg === '1'; P.render(); return; }
         if (a === 'chip') { chipTip = chipTip === +arg ? null : +arg; P.render(); return; }
         if (a === 'none') return;
