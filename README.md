@@ -43,7 +43,34 @@ Each one shows a "Powered by" line on the screen where it's used. The artifact c
 
 ### The Strata phone
 
-Press **Tab** to raise it. Screens: Home (countdown and digital twin), Power, Mesh, Fair share, Surface, Return plan. The world keeps running while the phone is up. On the surface, radiation still counts down.
+Press **Tab** to raise it. Tabs: Home, Power, **Life**, Mesh, Share, Surface (Return plan unlocks after the signed reading). The world keeps running while the phone is up. On the surface, radiation still counts down.
+
+All 15 hackathon problems have a screen and a number that proves the fix:
+
+| # | Problem | Screen | Proof on screen |
+|---|---|---|---|
+| 1 | Blackouts | Power, Home | 500-run forecast; Deep kept lit |
+| 2 | Rationing | Fair share | Every level ≥ 55%; limits 3 / 3 |
+| 3 | Cooling | Life · Air | Pumps on 6 of 6; Deep flat at 32 °C vs 41 °C under the Directorate |
+| 4 | Water | Life · Water | 19,400 → 0 cut off; 9.1 → 12.5 days |
+| 5 | Tunnels | Return plan | Peak corridor crowd 14,400 → 3,030 |
+| 6 | Space | Return plan | Deep 3.1 m² per person, under 3.5 |
+| 7 | Network cut | Mesh | Flood broadcast; 113 phones on the mesh |
+| 8 | Split families | Mesh | Ava's signed, verified reply |
+| 9 | Lung disease | Life · Lungs, Medicine | Deep inhalers 0.8 → 6.6 days; worst lungs first |
+| 10 | Medicine | Life · Medicine | Stock by need; insulin cold chain powered |
+| 11 | Sunlight | Life · Lungs | Sun-lamp bays tonight, Deep first |
+| 12 | Food | Life · Food | Farms 48% → 78%; 56.7 → 132 days |
+| 13 | Is the surface safe? | Surface | Signed probe reading; dose table |
+| 14 | Who goes first | Surface | 12 crew from 60 volunteers, scored |
+| 15 | The way up | Return plan | 4 waves; all up by day 64 |
+
+**Ask Strata** (Home bar or the Mesh screen) answers free-text questions from the live engines, offline.
+
+### Filming
+
+- `http://localhost:5180/?video=1` hides the fps counter and hints, enlarges the phone and moves it right of centre, and lengthens toasts.
+- In the browser console, `__strata.jump(n)` jumps to any stage (0–12) in a consistent state; `__strata.jump(n, { life: true })` also sets the three Life fixes. Examples: `jump(3)` after the fair split, `jump(7)` on the surface with the drone scouting, `jump(11)` at the Return plan.
 
 There are 4 collectible notes (lore). Progress saves automatically in the browser. Use **New game** on the menu to start over.
 
@@ -74,9 +101,10 @@ assets/world.js     3D world (gzipped glTF, base64), authored in Blender
 assets/textures.js  material textures (base64 JPEG)
 assets/lightmaps.js baked lighting for the three levels (base64 JPEG)
 serve.js            tiny zero-dependency static server for local play
+vendor/             three.js r128 + post-processing, and the fonts (OFL)
 ```
 
-Three.js r128 is loaded from a CDN (cdnjs and jsDelivr).
+Three.js r128 and the fonts (Inter, Rajdhani, JetBrains Mono) are self-hosted in `vendor/`, so the game runs with no internet.
 
 ### Coordinates
 
