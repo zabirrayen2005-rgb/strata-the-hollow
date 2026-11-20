@@ -90,6 +90,18 @@
   @keyframes spTile{0%,100%{box-shadow:0 0 0 0 rgba(79,195,247,0)}50%{box-shadow:0 0 0 2px rgba(79,195,247,.85),0 0 22px rgba(79,195,247,.5)}}
   #sp .tile.hot{animation:spTile 1.4s infinite}
   #sp .tile[aria-disabled="true"]{opacity:.55;cursor:default}
+  #sp .cstrip{margin:12px 16px 0;display:flex;flex-wrap:wrap;gap:6px}
+  #sp .cchip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;background:rgba(8,12,20,.9);cursor:pointer}
+  #sp .cchip i{width:7px;height:7px;border-radius:50%;display:inline-block}
+  #sp .msg{display:flex;margin-top:10px} #sp .msg.me{justify-content:flex-end}
+  #sp .msg .bb{max-width:86%;padding:10px 12px;border-radius:16px;font-size:13px;line-height:1.5}
+  #sp .msg.me .bb{background:rgba(95,208,255,.16);border:1px solid rgba(95,208,255,.35);color:#eaf7ff;border-bottom-right-radius:4px}
+  #sp .msg.ai .bb{background:rgba(14,20,31,.95);border:1px solid rgba(120,150,200,.22);color:#dbe6ff;border-bottom-left-radius:4px} #sp .msg.ai .bb b{color:#fff}
+  #sp .crow{display:grid;grid-template-columns:4px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(120,150,200,.12)} #sp .crow:first-of-type{border-top:0}
+  #sp .crow .bar4{width:4px;align-self:stretch;border-radius:2px}
+  #sp .crow .t1{font-size:13px;color:#e6eefb;font-weight:600} #sp .crow .t2{font-size:11px;color:#9fb3d1;margin-top:2px;font-family:'JetBrains Mono',monospace}
+  #sp .tag{display:inline-block;margin-top:4px;padding:2px 7px;border-radius:6px;font:700 11px 'JetBrains Mono',monospace;letter-spacing:.06em;border:1px solid}
+  #sp .mini{min-height:34px;padding:0 10px;border-radius:10px;border:1px solid;background:rgba(14,20,31,.9);font:700 12px Rajdhani,sans-serif;letter-spacing:.1em;cursor:pointer}
   #sp .lc{display:flex;align-items:center;gap:8px;font:700 13px Rajdhani,sans-serif;letter-spacing:.12em}
   #spBadge.hot{color:#ffd2cc;border-color:rgba(255,90,77,.6);background:rgba(40,8,8,.85)}
   `;

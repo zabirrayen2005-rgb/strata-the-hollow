@@ -41,7 +41,7 @@
     memo: { title: 'Air quality memo — CONFIDENTIAL', level: 'R', at: [8.4, 4.0], h: 0.5,
       body: 'TO: The Directorate\nRE: Eastern basin readings\n\nSurface radiation in the eastern basin has fallen below lethal levels for the fourteenth month in a row. Sealed suits would allow hours outside; domes, indefinitely.\n\nRecommendation: say nothing. A frightened Deep is a quiet Deep.\n\n— Office of the Surface Director' },
     log: { title: 'Surface Director’s log', level: 'R', at: [12.45, -9.32], h: 0.72,
-      body: 'Day 4,112.\n\nFeed 3 is running hot again. Engineering wants to warn the lower levels. I said no — if the Deep goes dark for a night, the Deep goes quiet for a night.\n\nTonight we cut the network too. No rumours, no panic, no questions about the surface.\n\nThe probes at the hatch still report. Nobody below has a key to read them.' },
+      body: 'Day 4,112.\n\nFeed 3 is running hot again. Engineering wants to warn the lower levels. I said no — if the Deep goes dark for a night, the Deep goes quiet for a night.\n\nTonight we cut the network too. No rumours, no panic, no questions about the surface.\n\nThe probes at the hatch still report. Nobody below has a key to read them.\n\nAppendix: the Directorate signing key, public half, copied here for the probe archive. Never let a copy reach the Deep.' },
   };
   const NOTE_IDS = ['ticket', 'gala', 'memo', 'log'];
 

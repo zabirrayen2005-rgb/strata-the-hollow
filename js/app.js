@@ -10,7 +10,11 @@
     const fmt = s => { if (!isFinite(s)) return '—'; s = Math.max(0, Math.round(s)); return (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0'); };
     const pct = x => (x * 100 < 1 && x > 0 ? (x * 100).toFixed(1) : Math.round(x * 100)) + '%';
     const BG = { home: '#0f2236', power: '#2a1c08', life: '#082436', mesh: '#0a2433', share: '#0b2a20', surface: '#1f1236', ret: '#3a2a10' };
-    let askDraft = '', askFocus = false, askBusy = null; const askLog = [];   // Ask Strata: draft, focus, pending question, last 3 answers
+    let askDraft = '', askFocus = false, askBusy = null, chatScroll = false;   // Ask Strata: draft, focus, pending question
+    let relayConfirm = false, relayNote = '', cardNote = '', urlNote = '';        // Connections screen notes
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const strip = h => String(h).replace(/<br>/g, ' ').replace(/<[^>]+>/g, '');
+    const conn = window.StrataConnectors ? window.StrataConnectors({ onChange: () => { if (['chat', 'conn', 'mesh'].includes(P.state.scr)) P.render(); } }) : null;
 
     const pw = (...items) => `<div class="pw">POWERED BY ${items.map(i => `<b>${i}</b>`).join(' · ')}</div>`;
     const cop = (text, who = 'COPILOT-STYLE ASSISTANT') => `<div class="cop"><div class="who">✦ ${who}</div>${text}</div>`;
@@ -290,25 +294,127 @@
       { id: 'ret', kw: ['when', 'return', 'move up', 'lift', 'everyone'], src: 'returnPlan()', a: () => `Four waves through one lift at ${M.plan.liftPerDay} a day. The Deep and the Warrens are up by day <b>${M.plan.waves[2].end}</b>, everyone by day <b>${M.plan.allUp}</b>.` },
       { id: 'trust', kw: ['trust', 'lie', 'proof', 'verify', 'signed', 'fake'], src: 'sig.verify()', a: () => S().sent ? `The probe reading is signed with ECDSA P-256 (key ${M.fp.probe || '…'}) and <b>${S().sent.ok ? 'verifies' : 'did not verify'}</b>. Change one character and the check fails.` : `Messages on the mesh are signed with ECDSA P-256. ${S().ava && S().ava.ok ? "Ava's reply verified against her key " + (M.fp.ava || '') + '.' : 'Nothing signed has arrived yet.'}` },
     ];
+    INTENTS.push({ id: 'memory', kw: [['what did i ask', 3], ['remember', 2], ['earlier', 2], ['last time', 2]], src: 'phone memory', a: () => {
+      const m = conn ? conn.memory.all().slice(-6) : []; if (!m.length) return 'Nothing in phone memory yet.';
+      return 'From phone memory, you last asked: ' + m.slice(-3).map(x => '“' + esc(x.q) + '”').join(', ') + '.'; } });
     const FALLBACK = 'I can answer about power, water, food, medicine, air, lungs, space, tunnels, the network, Ava, the surface, the crew and the return. Try: “How long will the water last?”';
     function route(q) {
       const t = q.toLowerCase(); let best = null, bs = 0;
       for (const it of INTENTS) { let sc = 0; for (const k of it.kw) { const [w, wt] = Array.isArray(k) ? k : [k, 1]; if (t.includes(w)) sc += wt; } if (sc > bs) { bs = sc; best = it; } }
-      return best ? { a: best.a(), src: best.src } : { a: FALLBACK, src: null };
+      return best ? { a: best.a(), src: best.src, score: bs } : { a: FALLBACK, src: null, score: 0 };
     }
-    function askNow(q) {
-      q = (q || '').trim(); if (!q) return;
-      askBusy = q; askDraft = ''; P.render();
-      setTimeout(() => { const r = route(q); askLog.unshift({ q, a: r.a, src: r.src }); askLog.length = Math.min(askLog.length, 3); askBusy = null; P.render(); }, 400);
+    // live state of the Hollow, sent to the relay so its answers stay grounded in the game
+    function liveContext() {
+      const s = S(), L = M.life, lines = [];
+      lines.push('Objective: ' + (document.getElementById('objt') || {}).textContent);
+      lines.push(s.applied === 'str' ? `Power: Strata's fair split is live; the Deep goes dark in ${pct(M.fcBypassStr.pDark)} of 500 forecast runs.` : `Power: feed 3 is overheating; the Deep goes dark in about ${fmt(M.cd)} (${pct(M.fc.pDark)} of 500 runs).`);
+      if (L) lines.push(`Life support: ${n0(cutOff(L))} people cut off from water and air; water ${d1(L.waterDays)} days; food ${d0(L.foodDays)} days; worst inhaler cover ${L.meds[0].worst.toFixed(1)} days (${L.meds[0].worstAt}).`);
+      lines.push(s.netCut ? `Network: the Directorate network is down; ${M.inRange} phones in range of Mara, ${M.reach} on the resident mesh.` : 'Network: the Directorate network is up.');
+      lines.push(s.ava && s.ava.state === 'replied' ? 'Ava (Mara\'s daughter, L4 Works): safe, signed and verified reply.' : 'Ava (Mara\'s daughter, L4 Works): no reply yet.');
+      const p = E.surface.protection(1); lines.push(`Surface (probe model): ${p[0].label} unprotected, ${p[1].label} in a sealed suit, ${p[2].label} in a dome; the Directorate claims it is lethal in minutes.${s.sent ? ' The signed reading has been sent to all six levels.' : ''}`);
+      lines.push(`Return plan: 4 waves through one lift, everyone up by day ${M.plan.allUp}, the Deep first.`);
+      return lines.join('\n');
     }
+    // onboard brain first, then allowed memory cards, then the Surface Relay (only if switched on)
+    async function answer(q, forceRelay) {
+      if (conn) await conn.setLeaked(S().notes.includes('log'));
+      const on = route(q), hit = conn ? conn.search(q) : null;
+      if (!forceRelay && hit && (hit.explicit || hit.score > on.score || on.score === 0)) {
+        if (hit.state === 'allowed') return hit.explicit || on.score === 0
+          ? { a: esc(hit.fact.a), via: 'card', src: 'card: ' + hit.card.title + ' · verified' }
+          : { a: on.a + `<br><span style="color:#9fb3d1">From the ${esc(hit.card.title)} card:</span> ${esc(hit.fact.a)}`, via: 'card', src: (on.src ? on.src + ' + ' : '') + 'card: ' + hit.card.title };   // live numbers first, card detail after
+        if (hit.explicit || on.score === 0) {
+          if (hit.state === 'ask') return { a: `That is on the <b>${esc(hit.card.title)}</b> card. Its signature checks out, but Mara hasn't allowed it yet. Allow it in Connections.`, via: 'card', src: 'card: ' + hit.card.title + ' · not allowed yet' };
+          return { a: `That is on the <b>${esc(hit.card.title)}</b> card, but it is <b style="color:${RED}">UNVERIFIED · BLOCKED</b>: ${esc(hit.card.why)}. Strata does not read unverified sources.`, via: 'blocked', src: 'card: ' + hit.card.title + ' · blocked' };
+        }
+      }
+      if (on.score > 0 && !forceRelay) return { a: on.a, via: 'onboard', src: on.src };
+      if (conn && conn.relay.enabled) {
+        const r = await conn.relay.ask(q, liveContext(), conn.memory.all().filter(m => m.via !== 'blocked'));
+        if (r.ok) return { a: esc(r.text), via: 'relay', src: 'Surface Relay · ' + r.model };
+        return { a: (on.score > 0 ? on.a : FALLBACK) + `<br><span style="color:${AMBER}">Relay: ${esc(r.why)}</span>`, via: 'onboard', src: on.src };
+      }
+      return { a: forceRelay ? 'The Surface Relay is switched off. Turn it on in Connections.' : FALLBACK, via: 'onboard', src: null };
+    }
+    async function askNow(q, forceRelay) {
+      q = (q || '').trim(); if (!q || askBusy) return;
+      askBusy = q; askDraft = ''; chatScroll = true; P.render();
+      const [r] = await Promise.all([answer(q, forceRelay), new Promise(res => setTimeout(res, 400))]);
+      if (conn) conn.memory.add({ q, a: r.a, plain: strip(r.a), src: r.src, via: r.via });
+      askBusy = null; chatScroll = true; P.render();
+    }
+    const VIA = { onboard: ['ONBOARD', '#5fd0ff'], card: ['CARD', GREEN], blocked: ['BLOCKED', RED], relay: ['RELAY', '#c27bff'] };
+    const srcChip = x => x.src ? `<span class="src" style="border-color:${(VIA[x.via] || VIA.onboard)[1]}66"><b style="color:${(VIA[x.via] || VIA.onboard)[1]}">${(VIA[x.via] || VIA.onboard)[0]}</b> · ${x.via === 'onboard' ? 'computed from ' : ''}${esc(x.src)}</span>` : '';
+    const askRow = (relayBtn) => `<div class="askrow"><input id="askq" class="askin" type="text" autocomplete="off" placeholder="Ask anything about the Hollow…" value="${esc(askDraft)}" aria-label="Ask Strata"><button type="button" data-act="asksend">ASK</button>${relayBtn ? '<button type="button" data-act="askrelay" style="border-color:#c27bff;background:linear-gradient(90deg,#2a1757,#4a1d6b)">RELAY</button>' : ''}</div>`;
     const CHIPS = ['Is the lift running?', 'Where is Ava?', 'How long until dark?', 'Is the surface safe?', 'How long will the water last?', 'Who gets sun-lamp slots?', 'Is there enough insulin?', 'Why does the Deep go first?'];
+    const CARD_CHIPS = ['What’s in the clinic records?', 'Show the probe log', 'Any messages from Ava?', 'Open the Directorate archive'];
     function askCard() {
-      return `<div class="card" id="askcard" style="border-color:rgba(95,208,255,.25)"><div class="lbl">ASK STRATA · WORKS WITH THE NETWORK DOWN</div>
-        <div class="askrow"><input id="askq" type="text" autocomplete="off" placeholder="Ask anything about the Hollow…" value="${askDraft.replace(/"/g, '&quot;')}" aria-label="Ask Strata"><button type="button" data-act="asksend">ASK</button></div>
-        <div style="margin-top:10px">${CHIPS.map(c => `<button type="button" class="chipq" data-act="ask" data-arg="${c}">${c}</button>`).join('')}</div>
-        ${askBusy ? `<div class="qa"><div class="q">${askBusy}</div><div class="a dots"><i></i><i></i><i></i></div></div>` : ''}
-        ${askLog.map(x => `<div class="qa"><div class="q">${x.q.replace(/</g, '&lt;')}</div><div class="a">${x.a}</div>${x.src ? `<span class="src">computed from ${x.src}</span>` : ''}</div>`).join('')}</div>`;
+      const last = conn ? conn.memory.all().slice(-3).reverse() : [];
+      return `<div class="card" id="askcard" style="border-color:rgba(95,208,255,.25)"><div class="lbl" style="display:flex;justify-content:space-between"><span>ASK STRATA · WORKS WITH THE NETWORK DOWN</span><span data-go="chat" style="color:#9fdcff;cursor:pointer">OPEN ›</span></div>
+        ${askRow(false)}
+        <div style="margin-top:10px">${CHIPS.map(c => `<button type="button" class="chipq" data-act="ask" data-arg="${esc(c)}">${c}</button>`).join('')}</div>
+        ${askBusy ? `<div class="qa"><div class="q">${esc(askBusy)}</div><div class="a dots"><i></i><i></i><i></i></div></div>` : ''}
+        ${last.map(x => `<div class="qa"><div class="q">${esc(x.q)}</div><div class="a">${x.a}</div>${srcChip(x)}</div>`).join('')}</div>`;
     }
+    // ------------------------------------------------------------ STRATA ASSISTANT (chat)
+    function connStrip() {
+      if (!conn) return '';
+      const cs = conn.cards, allowedN = cs.filter(c => conn.state(c) === 'allowed').length, blockedN = cs.filter(c => conn.state(c) === 'blocked').length, r = conn.relay;
+      const chip = (dot, color, text) => `<span class="cchip" data-go="conn" style="border-color:${color}66;color:${color}"><i style="background:${dot}"></i>${text}</span>`;
+      return `<div class="cstrip">${chip(GREEN, '#9fdcff', 'ONBOARD ✓')}${chip(allowedN ? GREEN : AMBER, '#c8d4e6', `CARDS ${allowedN}/${cs.length}${blockedN ? ' · ' + blockedN + ' BLOCKED' : ''}`)}${chip('#9fdcff', '#c8d4e6', 'MEMORY ' + conn.memory.all().length)}${chip(r.enabled ? '#c27bff' : '#5a6478', r.enabled ? '#d6b6ff' : '#9fb3d1', r.enabled ? 'RELAY ON' : 'RELAY OFF')}</div>`;
+    }
+    function chatScr() {
+      chatScroll = true;   // the conversation always opens at the newest message
+      const mem = conn ? conn.memory.all().slice(-14) : [];
+      let body = hd('STRATA ASSISTANT · OFFLINE FIRST', '#9fdcff', 'Ask Strata', '#eaf7ff', 'Onboard brain first, then the memory cards Mara allows. The Surface Relay only when it is switched on.');
+      body += connStrip();
+      body += `<div class="card" id="chatlog" style="border-color:rgba(95,208,255,.25);padding-top:4px">${mem.length ? mem.map(x => `<div class="msg me"><div class="bb">${esc(x.q)}</div></div><div class="msg ai"><div class="bb">${x.a}<div>${srcChip(x)}</div></div></div>`).join('') : '<div class="why" style="color:#9fb3d1">No conversation yet. Ask about power, water, Ava, the surface, or one of the memory cards.</div>'}
+        ${askBusy ? `<div class="msg me"><div class="bb">${esc(askBusy)}</div></div><div class="msg ai"><div class="bb dots"><i></i><i></i><i></i></div></div>` : ''}</div>`;
+      body += `<div style="margin:12px 16px 0">${askRow(conn && conn.relay.enabled)}</div>`;
+      body += `<div style="margin:10px 16px 0">${CARD_CHIPS.concat(CHIPS.slice(4, 8)).map(c => `<button type="button" class="chipq" data-act="ask" data-arg="${esc(c)}">${c}</button>`).join('')}</div>`;
+      body += `<button type="button" class="btn" data-go="conn" style="border-color:rgba(95,208,255,.5);background:rgba(14,20,31,.9);color:#9fdcff">CONNECTIONS ›</button>`;
+      body += pw('MetroStar HorizonHunt-style offline AI · on-device', 'ECDSA P-256', conn && conn.relay.enabled ? 'Claude API (Surface Relay)' : 'Relay off');
+      return body;
+    }
+    // ------------------------------------------------------------ CONNECTIONS
+    const STATUS = { allowed: ['VERIFIED · ALLOWED', GREEN], ask: ['VERIFIED · ASK MARA', AMBER], blocked: ['UNVERIFIED · BLOCKED', RED] };
+    function connScr() {
+      let body = hd('CONNECTORS · SECURED', '#9fdcff', 'Connections', '#eaf7ff', 'Strata only reads sources signed by a key it trusts, and only after Mara allows them.');
+      if (!conn) return body + '<div class="note">Connectors unavailable.</div>';
+      body += `<div class="card" style="border-color:${GREEN}55"><div class="lbl">ONBOARD BRAIN</div>${verdict('ON', 'always · runs on this phone', GREEN)}<div class="why">Answers from the live engines. Works with the network cut. Nothing leaves the phone.</div></div>`;
+      // memory cards
+      body += `<div class="card" style="border-color:rgba(120,150,200,.3)"><div class="lbl">MEMORY CARDS · ${conn.cards.length} IN SLOTS</div>${conn.cards.map(c => { const s = conn.state(c), [txt, col] = c.status === 'verified' || c.status === 'blocked' ? STATUS[s] : ['CHECKING…', '#9fb3d1'];
+        const leakedTag = c.key === 'directorate' && c.status === 'verified' ? ` <span class="tag" style="color:${AMBER};border-color:${AMBER}88">LEAKED KEY</span>` : '';
+        const btns = (s === 'ask' ? `<button type="button" class="mini" data-act="cardallow" data-arg="${c.id}" style="border-color:${GREEN};color:${GREEN}">ALLOW</button>` : s === 'allowed' ? `<button type="button" class="mini" data-act="cardrevoke" data-arg="${c.id}" style="border-color:rgba(255,255,255,.3);color:#c8d4e6">REVOKE</button>` : '')
+          + (c.custom ? ` <button type="button" class="mini" data-act="cardeject" data-arg="${c.id}" style="border-color:rgba(255,255,255,.3);color:#c8d4e6">EJECT</button>` : '');
+        return `<div class="crow"><span class="bar4" style="background:${c.color || '#9fb3d1'}"></span><div><div class="t1">${esc(c.title)}</div><div class="t2">${esc(c.issuer)}</div><span class="tag" style="color:${col};border-color:${col}88">${txt}</span>${leakedTag}<div class="t2" style="color:${s === 'blocked' ? '#ffb4ab' : '#9fb3d1'}">${esc(c.why || '')}</div></div><div>${btns}</div></div>`; }).join('')}
+        <input type="file" id="cardfile" accept=".json,application/json" style="display:none">
+        ${cardNote ? `<div class="why">${cardNote}</div>` : ''}</div>`;
+      body += btn('cardinsert', 'INSERT A MEMORY CARD (.JSON)', '#9fdcff', 'rgba(14,20,31,.9)');
+      // phone memory
+      const mn = conn.memory.all().length;
+      body += `<div class="card" style="border-color:rgba(95,208,255,.3)"><div class="lbl">PHONE MEMORY</div>${verdict(String(mn), 'messages kept on this phone', '#9fdcff')}<div class="why">Stored in this browser only. Used so Strata remembers what you asked.</div></div>`;
+      body += btn('memclear', 'CLEAR PHONE MEMORY', 'rgba(255,255,255,.3)', 'rgba(14,20,31,.9)', mn === 0);
+      // surface relay
+      const r = conn.relay;
+      body += `<div class="card" style="border-color:#c27bff66"><div class="lbl">SURFACE RELAY · LIVE AI · ${r.info.provider.toUpperCase()}</div>${verdict(r.enabled ? 'ON' : 'OFF', r.enabled ? 'authorized by Mara' : 'switched off (default)', r.enabled ? '#d6b6ff' : '#9fb3d1')}
+        <div class="kv" style="margin-top:10px"><span>Model</span><b>${r.info.model}</b><span>Allowed hosts</span><b>${r.info.allow.join(', ')}</b><span>Key</span><b style="color:${r.hasKey ? GREEN : '#9fb3d1'}">${r.hasKey ? 'stored in this browser' : 'none'}</b></div>
+        <div class="askrow"><input id="relaykey" class="askin" type="password" autocomplete="off" placeholder="Paste a Claude API key" aria-label="Relay API key"><button type="button" data-act="keysave">SAVE</button>${r.hasKey ? '<button type="button" data-act="keyforget" style="border-color:rgba(255,255,255,.3);background:rgba(14,20,31,.9)">FORGET</button>' : ''}</div>
+        <div class="why" style="color:#9fb3d1">The key never goes in the code or the save. It stays in this browser and is sent only to the allowed host.</div>
+        <div class="askrow"><input id="relayurl" class="askin" type="text" autocomplete="off" placeholder="Test a relay address (allowlist check)" aria-label="Relay address"><button type="button" data-act="urltest">TEST</button></div>
+        ${urlNote ? `<div class="why">${urlNote}</div>` : ''}
+        ${relayNote ? `<div class="why" style="color:${AMBER}">${relayNote}</div>` : ''}</div>`;
+      if (relayConfirm) body += `<div class="note" style="background:rgba(194,123,255,.1);border:2px solid #c27bff;color:#efe2ff"><div style="font-size:13px;line-height:1.5">Connect to the <b>Surface Relay</b>? Questions that the onboard brain can't answer, plus the live readings, will leave this phone and go to <b>${r.info.allow[0]}</b>. Your key stays in this browser.</div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="btn" data-act="relaycancel" style="margin:0;flex:1;width:auto;border-color:rgba(255,255,255,.3);background:rgba(14,20,31,.9)">CANCEL</button><button type="button" class="btn" data-act="relayallow" style="margin:0;flex:1;width:auto;border-color:#c27bff;background:linear-gradient(90deg,#2a1757,#4a1d6b)">ALLOW</button></div></div>`;
+      else body += r.enabled ? btn('relayoff', 'SWITCH OFF THE RELAY', 'rgba(255,255,255,.3)', 'rgba(14,20,31,.9)') : btn('relayon', r.hasKey ? 'SWITCH ON THE RELAY' : 'ADD A KEY TO USE THE RELAY', '#c27bff', 'linear-gradient(90deg,#2a1757,#4a1d6b)', !r.hasKey);
+      body += `<div class="foot">Inside the Claude artifact, outside calls are blocked, so the relay works only in the GitHub or local version.</div>`;
+      // trust store
+      body += `<div class="card" style="border-color:rgba(120,150,200,.3)"><div class="lbl">TRUSTED KEYS · ECDSA P-256</div>${Object.entries(conn.keys).map(([id, k]) => { const t = k.role !== 'untrusted' || conn.leaked; return `<div class="crow" style="grid-template-columns:1fr auto"><div><div class="t1">${esc(k.name)}</div><div class="t2">${k.fp}</div></div><span class="tag" style="color:${t ? GREEN : RED};border-color:${t ? GREEN : RED}88">${id === 'directorate' ? (conn.leaked ? 'LEAKED · TRUSTED' : 'NOT TRUSTED') : k.role === 'contact' ? 'CONTACT' : 'TRUSTED'}</span></div>`; }).join('')}
+        ${conn.leaked ? '' : '<div class="why" style="color:#9fb3d1">Rumour says the Surface Director copied the Directorate key into his log.</div>'}</div>`;
+      body += pw('ECDSA P-256 signatures', 'Claude API (off by default)');
+      return body;
+    }
+
     function mesh() {
       const s = S(); story.act('mesh');
       let body = hd('PROBLEM #7 · NETWORK CUT  +  #8 FAMILIES', '#9fdcff', 'Resident mesh', '#eaf7ff', 'Phones pass messages hand to hand. No towers, no Directorate.');
@@ -394,24 +500,29 @@
       return body;
     }
 
-    const R = { home, power, life: lifeScr, share, mesh, surface, ret };
-    return {
-      bg: BG,
+    const R = { home, power, life: lifeScr, share, mesh, surface, ret, chat: chatScr, conn: connScr };
+    const app = {
+      bg: Object.assign(BG, { chat: '#0a2433', conn: '#141a33' }),
       render: scr => (R[scr] || home)(),
       dots: () => ({ life: !!M.life && (cutOff(M.life) > 0 || !!M.life.leak) }),
       live(el) {
-        const inp = el.querySelector('#askq');
-        if (inp && !inp.dataset.wired) {
-          inp.dataset.wired = 1;
-          const stop = e => e.stopPropagation();
-          inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); askNow(inp.value); } else if (e.key === 'Escape') { e.preventDefault(); inp.blur(); } });
+        el.querySelectorAll('input.askin').forEach(inp => {
+          if (inp.dataset.wired) return; inp.dataset.wired = 1;
+          const stop = e => e.stopPropagation(), isAsk = inp.id === 'askq';
+          const submit = () => { if (isAsk) askNow(inp.value); else if (inp.id === 'relaykey') app.act('keysave', inp); else if (inp.id === 'relayurl') app.act('urltest', inp); };
+          inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Escape') { e.preventDefault(); inp.blur(); } });
           inp.addEventListener('keyup', stop); inp.addEventListener('keypress', stop);
-          inp.addEventListener('input', () => { askDraft = inp.value; });
-          inp.addEventListener('focus', () => { askFocus = true; });
-          inp.addEventListener('blur', () => { askFocus = false; });
           inp.addEventListener('click', stop); inp.addEventListener('mousedown', stop);
-          if (askFocus) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); const c = el.querySelector('#askcard'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
-        }
+          if (isAsk) {
+            inp.addEventListener('input', () => { askDraft = inp.value; });
+            inp.addEventListener('focus', () => { askFocus = true; });
+            inp.addEventListener('blur', () => { askFocus = false; });
+            if (askFocus) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); const c = el.querySelector('#askcard'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
+          }
+        });
+        if (chatScroll) { chatScroll = false; const b = el.querySelector('.body'), log = el.querySelector('#chatlog'); if (b && log) b.scrollTop = log.offsetTop + log.offsetHeight - b.clientHeight + 120; }
+        const cf = el.querySelector('#cardfile');
+        if (cf && !cf.dataset.wired) { cf.dataset.wired = 1; cf.addEventListener('change', () => { const f = cf.files && cf.files[0]; if (!f) return; f.text().then(async t => { const r = await conn.insert(t); cardNote = r.ok ? `Inserted <b>${esc(r.card.title)}</b>: ${r.card.status === 'verified' ? '<span style="color:' + GREEN + '">signature verified</span>' : '<span style="color:' + RED + '">UNVERIFIED · BLOCKED</span> (' + esc(r.card.why) + ')'}` : `<span style="color:${RED}">${esc(r.why)}</span>`; P.render(); }); }); }
         el.querySelectorAll('.lsi[data-on]').forEach(n => { const off = n.dataset.on === '0'; if (n.classList.contains('off') !== off) { void n.offsetWidth; n.classList.toggle('off', off); } });
         const set = (k, v) => { if (tweening[k]) return; const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
         set('cd', S().applied === 'str' ? '6 H+' : fmt(M.cd));
@@ -437,7 +548,20 @@
         if (a === 'go-share') { P.go('share'); return; }
         if (a === 'ask') { askNow(arg); return; }
         if (a === 'asksend') { const i = el.closest('#sp').querySelector('#askq'); askNow(i ? i.value : askDraft); return; }
-        if (a === 'askopen') { askFocus = true; P.go('mesh'); return; }
+        if (a === 'askopen') { askFocus = true; P.go('chat'); return; }
+        if (a === 'askrelay') { const i = el.closest('#sp').querySelector('#askq'); askNow(i ? i.value : askDraft, true); return; }
+        if (conn && a === 'cardallow') { conn.allow(arg, true); P.render(); return; }
+        if (conn && a === 'cardrevoke') { conn.allow(arg, false); P.render(); return; }
+        if (conn && a === 'cardeject') { conn.eject(arg); cardNote = ''; return; }
+        if (a === 'cardinsert') { const f = document.getElementById('cardfile'); if (f) { f.value = ''; f.click(); } return; }
+        if (conn && a === 'memclear') { conn.memory.clear(); P.render(); return; }
+        if (conn && a === 'keysave') { const i = el.closest('#sp').querySelector('#relaykey'); const v = i && i.value.trim(); if (v) { conn.relay.setKey(v); relayNote = 'Key saved in this browser.'; } else relayNote = 'Paste a key first.'; P.render(); return; }
+        if (conn && a === 'keyforget') { conn.relay.setKey(null); conn.relay.enable(false); relayNote = 'Key removed and relay switched off.'; P.render(); return; }
+        if (conn && a === 'urltest') { const i = el.closest('#sp').querySelector('#relayurl'); const u = (i && i.value.trim()) || ''; const ok = conn.relay.hostAllowed(/^https?:\/\//.test(u) ? u : 'https://' + u); urlNote = u ? (ok ? `<span style="color:${GREEN}">ALLOWED</span> · ${esc(u)} is on the allowlist` : `<span style="color:${RED}">BLOCKED</span> · ${esc(u)} is not on the allowlist`) : ''; P.render(); return; }
+        if (conn && a === 'relayon') { relayConfirm = true; P.render(); return; }
+        if (a === 'relaycancel') { relayConfirm = false; P.render(); return; }
+        if (conn && a === 'relayallow') { relayConfirm = false; conn.relay.enable(true); conn.relay.permit(true); relayNote = 'Surface Relay on. Questions the onboard brain can’t answer go to the relay.'; P.buzz(); P.render(); return; }
+        if (conn && a === 'relayoff') { conn.relay.enable(false); relayNote = 'Surface Relay off. Nothing leaves the phone.'; P.render(); return; }
         if (a === 'apply' && arg === 'dir' && !confirmDir) { confirmDir = true; P.render(); return; }
         if (a === 'canceldir') { confirmDir = false; P.render(); return; }
         if (a === 'confirmdir') { confirmDir = false; P.buzz(); story.act('apply', 'dir'); return; }
@@ -451,5 +575,6 @@
         story.act(a, arg);
       },
     };
+    return app;
   };
 })();
