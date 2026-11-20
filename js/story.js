@@ -57,7 +57,7 @@
     let S = load() || fresh();
     const busy = { dlg: null, note: null };
 
-    function fresh() { return { stage: 0, notes: [], flags: {}, deaths: 0, played: 0, ended: false, mode: null, bypass: false, applied: null, netCut: false, broadcast: false, ava: null, mapped: [], crew: false, planted: false, sent: null }; }
+    function fresh() { return { stage: 0, notes: [], flags: {}, deaths: 0, played: 0, ended: false, mode: null, bypass: false, applied: null, netCut: false, broadcast: false, ava: null, mapped: [], crew: false, planted: false, sent: null, life: { leak: false, lamps: false, triage: false } }; }
     function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && typeof s.stage === 'number' ? Object.assign(fresh(), s) : null; } catch (e) { return null; } }
     function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 
@@ -69,7 +69,7 @@
       twin: E.twin(C.G), plan: E.returnPlan(), crew: null,
       graph: null, hop: null, reach: 0, inRange: 0, bcT: -1, route: null, routeT: -1, replyT: -1,
       keys: {}, fp: {}, probe: null, site: null, dose: 1, droneI: 0, droneMsg: 'Waiting at the hatch',
-      busy: false,
+      busy: false, life: null, lifeDir: null, lifePrev: null,
     };
 
     // ------------------------------------------------------------ HUD
@@ -233,10 +233,29 @@
     }
     function actApply(mode) {
       S.applied = mode; save();
+      recomputeLife();
       if (mode === 'dir') { M.dark = true; toast('STRATA', 'Directorate split applied: L5 and the Deep fall to zero. Every lamp down here goes out.', 5600); C.blip(90, 1.2, 'sawtooth', .08); rerender(); return; }
       M.dark = false; M.cd = Infinity;
       toast('STRATA', 'Fair split applied. Every level above its survival minimum. The Deep stays lit and the lift has power.', 6000);
-      C.ding(); setStage(3); S.flags.powerAt = S.played; save();
+      C.ding(); setStage(3); S.flags.powerAt = S.played; save(); recomputeLife();
+    }
+
+    // ------------------------------------------------------------ life support (water, food, medicine, air, sunlight, space)
+    const POWER_MW = E.FEEDS[0].cap + E.FEEDS[1].cap;          // 78 MW once feed 3 is bypassed
+    function lifeFlags(over = {}) { return Object.assign({ leakFixed: S.life.leak, nightLamps: S.life.lamps, triage: S.life.triage }, over); }
+    function recomputeLife() {
+      M.lifeDir = E.life(E.allocate(POWER_MW, 'dir'));
+      M.life = E.life(E.allocate(POWER_MW, S.applied === 'str' ? 'str' : 'dir'), lifeFlags());
+    }
+    const LIFE_TOAST = {
+      leak: ['WATER', () => `Leak on L5 Warrens main loop isolated. +${(M.life.waterDays - M.lifePrev.waterDays).toFixed(1)} days of water.`],
+      lamps: ['FOOD', () => `Grow lamps moved to the night window. Farms now cover ${Math.round(M.life.farmShare * 100)}% of need.`],
+      triage: ['MEDICINE', () => `Inhalers re-sent by need over the mesh. The Deep now has ${M.life.meds[0].days[5].toFixed(1)} days of cover.`],
+    };
+    function actLife(kind) {
+      if (S.applied !== 'str' || S.life[kind]) return;
+      M.lifePrev = M.life; S.life[kind] = true; save(); recomputeLife();
+      const t = LIFE_TOAST[kind]; toast(t[0], t[1](), 5200); C.ding(); rerender();
     }
 
     // ------------------------------------------------------------ Act 2: network
@@ -402,7 +421,7 @@
     function newGame() {
       S = fresh(); save();
       for (const p of pickups) p.g.visible = true;
-      M.dark = false; M.crew = null; M.route = null; M.routeT = M.replyT = M.bcT = -1; M.droneI = 0;
+      recomputeLife(); M.dark = false; M.crew = null; M.route = null; M.routeT = M.replyT = M.bcT = -1; M.droneI = 0;
       runForecasts(); M.cd = M.cd0;
       meshGroup.visible = false; probe.visible = false; siteMark.visible = false; upBeam.material.opacity = 0;
       hotRings.forEach(r => r.material.opacity = 0); drone.position.copy(pos('S', HATCH[0] + 1.5, HATCH[1] + 1.5, 2.2)); updateSite();
@@ -533,7 +552,7 @@
     addEventListener('mousedown', e => { if (C.state !== 'play') return; if (busy.note || busy.dlg) { e.preventDefault(); interact(); } });
 
     // restore world state from a save
-    runForecasts();
+    runForecasts(); recomputeLife();
     if (S.stage >= 3) { M.cd = Infinity; }
     if (S.netCut) meshGroup.visible = true;
     if (S.planted && S.probeAt) { probe.position.copy(pos('S', S.probeAt[0], S.probeAt[1], 0)); probe.visible = true; }
@@ -558,6 +577,9 @@
         else if (a === 'sign') actSign();
         else if (a === 'finish') { if (S.stage >= 11 && !S.ended) ending(); }
         else if (a === 'mesh') meshStatus();
+        else if (a === 'fixleak') actLife('leak');
+        else if (a === 'lamps') actLife('lamps');
+        else if (a === 'triage') actLife('triage');
       },
     };
     if (window.StrataApp && phone()) phone().use(window.StrataApp(api, C));

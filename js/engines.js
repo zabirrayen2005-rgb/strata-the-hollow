@@ -231,11 +231,118 @@
       for (const z of g.zones) { const id = add(k + ':' + z.name, 'dtmi:strata:Room;1', { name: z.name }); rel(map[k], 'contains', id); }
       g.lamps.forEach((lp, i) => { const id = add(k + ':lamp' + i, 'dtmi:strata:Lamp;1', { kind: lp[3] }); rel(map[k], 'contains', id); });
     }
+    // life support: water loops, farms, clinics, sun-lamp bays
+    for (const l of LEVELS) { const w = add(l.id + ':water', 'dtmi:strata:WaterLoop;1', { litresPerDay: l.pop * 15 }); rel(l.id, 'feeds', w); rel(w, 'serves', l.id); }
+    for (let i = 1; i <= 4; i++) { const f = add('L3:farm' + i, 'dtmi:strata:Farm;1', { hall: i }); rel('L3', 'powers', f); for (const l of LEVELS) rel(f, 'feeds', l.id); }
+    for (const [lv, kind] of [['L2', 'main'], ['L6', 'field']]) { const c = add(lv + ':clinic', 'dtmi:strata:Clinic;1', { kind }); rel(lv, 'powers', c); rel(c, 'serves', lv); }
+    for (const l of LEVELS) for (let i = 1; i <= 4; i++) rel(l.id, 'powers', add(l.id + ':sun' + i, 'dtmi:strata:SunLampBay;1', { bay: i }));
     const lift = add('lift', 'dtmi:strata:Lift;1', { perDay: 960 }); for (const l of LEVELS) rel(lift, 'serves', l.id); rel(lift, 'serves', 'surface');
     return { twins, rels, models: [...new Set(twins.map(t => t.$metadata.$model))] };
   }
 
+  // ------------------------------------------------------------ life support: water, food, medicine, air, sunlight, space
+  // Planning assumptions are shown on screen. Every result is derived from allocate() output.
+  const LIFE = {
+    waterPerPerson: 15,                  // litres per person per day (drinking, cooking, hygiene)
+    waterStore: 3000000,                 // litres in the shared reservoir
+    recycleMin: 0.60, recycleMax: 0.90,  // recycler recovery at the survival minimum and at full power
+    leak: { level: 'L5', lpd: 90000, pipe: 'L5 Warrens main loop' },
+    kcal: 2100,                          // kcal per person per day
+    foodStore: 3.0e9,                    // kcal in the store
+    farmMax: 0.95,                       // share of total need the L3 farms grow at full power
+    nightDrop: 0.20,                     // residential load falls 20% in the night window
+    lampMW: 0.25, lampSeats: 40, lampSlots: 18, // sun-lamp bay: MW, people per 20-min slot, slots per night
+    lung: { L1: 92, L2: 88, L3: 84, L4: 76, L5: 68, L6: 61 },                         // lung-health index, 100 = healthy
+    area: { L1: 62000, L2: 46000, L3: 31000, L4: 44000, L5: 34000, L6: 31000 },       // living m² per level
+    spaceMin: 3.5,                       // m² per person below which a level is overcrowded
+    clinic: 'L2',                        // insulin fridge lives here; holds 8 h without power
+  };
+  const MEDS = [
+    { id: 'inhaler', name: 'Inhalers', unit: 'inhalers', stock: { L1: 700, L2: 600, L3: 400, L4: 300, L5: 200, L6: 100 }, need: (l, lung) => l.pop * (lung < 70 ? 0.012 : 0.004) },
+    { id: 'insulin', name: 'Insulin', unit: 'vials', stock: { L1: 500, L2: 500, L3: 300, L4: 250, L5: 150, L6: 100 }, need: l => l.pop * 0.0016, cold: true },
+    { id: 'abx', name: 'Antibiotics', unit: 'courses', stock: { L1: 700, L2: 600, L3: 450, L4: 400, L5: 250, L6: 200 }, need: l => l.pop * 0.0025 },
+  ];
+  const svc = sh => sh >= SURVIVAL - 1e-6;   // pumps, kitchens, air and cooling run at or above the minimum
+  function life(alloc, { leakFixed = false, nightLamps = false, triage = false, levels = LEVELS } = {}) {
+    const total = alloc.reduce((a, o) => a + o.mw, 0);
+    const lv = levels.map((l, i) => ({ ...l, mw: alloc[i].mw, sh: Math.min(1, alloc[i].ofDemand), on: svc(alloc[i].ofDemand), lung: LIFE.lung[l.id] }));
+    // WATER: below the minimum a level gets no pumped water; above it recyclers recover 60–90%.
+    let lost = 0, dry = 0;
+    const water = lv.map(l => {
+      if (!l.on) { dry += l.pop; return { id: l.id, name: l.name, on: false, recovery: 0 }; }
+      const rec = LIFE.recycleMin + (LIFE.recycleMax - LIFE.recycleMin) * (l.sh - SURVIVAL) / (1 - SURVIVAL);
+      lost += l.pop * LIFE.waterPerPerson * (1 - rec); return { id: l.id, name: l.name, on: true, recovery: rec };
+    });
+    const leak = leakFixed ? 0 : LIFE.leak.lpd; lost += leak;
+    const waterDays = LIFE.waterStore / lost;
+    // FOOD: L3 grow lamps scale with L3's share; night lamps move night-window spare power to the farms.
+    const need = levels.reduce((a, l) => a + l.pop, 0) * LIFE.kcal;
+    const l3 = lv.find(l => l.id === 'L3');
+    let farmShare = l3.on ? LIFE.farmMax * (l3.sh - 0.3) / 0.7 : 0;
+    const nightSpare = total * LIFE.nightDrop;
+    if (nightLamps && l3.on) farmShare = Math.min(LIFE.farmMax, farmShare + 0.30);
+    const grown = need * farmShare;
+    const hungry = lv.filter(l => !l.on).reduce((a, l) => a + l.pop, 0);   // no kitchens, no cold store
+    const foodDays = grown >= need ? Infinity : LIFE.foodStore / (need - grown);
+    // MEDICINE: days of cover per level; triage pools stock and hands it out by need.
+    const meds = MEDS.map(m => {
+      const needs = lv.map(l => m.need(l, l.lung)), totalStock = Object.values(m.stock).reduce((a, b) => a + b, 0);
+      const stock = triage ? needs.map(n => totalStock * n / needs.reduce((a, b) => a + b, 0)) : lv.map(l => m.stock[l.id]);
+      const days = lv.map((l, i) => stock[i] / needs[i]);
+      const coldOk = !m.cold || lv.find(l => l.id === LIFE.clinic).on;
+      return { id: m.id, name: m.name, unit: m.unit, days, worst: Math.min(...days), worstAt: lv[days.indexOf(Math.min(...days))].name, coldOk };
+    });
+    // AIR + LUNGS: air pumps run only at or above the minimum. Sun-lamp bays use spare night power after the farms.
+    const air = lv.map(l => ({ id: l.id, name: l.name, pumps: l.on, lung: l.lung }));
+    const lampPower = nightLamps ? Math.max(0, nightSpare - 10) : nightSpare;   // farms take 10 MW of the night spare
+    const bays = Math.floor(lampPower / LIFE.lampMW), seats = bays * LIFE.lampSeats * LIFE.lampSlots;
+    const order = [...lv].sort((a, b) => a.lung - b.lung);                       // worst lungs first
+    let left = seats, night = 1; const sun = [];
+    for (const l of order) {
+      if (!l.on) { sun.push({ id: l.id, name: l.name, lung: l.lung, coveredBy: null }); continue; }
+      let p = l.pop;
+      while (p > 0) { const take = Math.min(p, left); p -= take; left -= take; if (left <= 0 && p > 0) { night++; left = seats; } }
+      sun.push({ id: l.id, name: l.name, lung: l.lung, coveredBy: night });
+    }
+    // SPACE: m² per person; overcrowded below the minimum.
+    const space = lv.map(l => ({ id: l.id, name: l.name, m2: LIFE.area[l.id] / l.pop, crowded: LIFE.area[l.id] / l.pop < LIFE.spaceMin }));
+    return { water, waterDays, lostPerDay: lost, leak, dry, need, farmShare, foodDays, hungry, meds, air, bays, seats, sun, space, nightSpare };
+  }
+
+  // ------------------------------------------------------------ cooling: level temperature over the next hours
+  const HEAT = { base: { L1: 24, L2: 25, L3: 26, L4: 28, L5: 30, L6: 32 }, limit: 35, risePerHour: 1.5 };
+  function heat(alloc, hours = 6, levels = LEVELS) {
+    return levels.map((l, i) => {
+      const on = alloc[i].ofDemand >= SURVIVAL - 1e-6;
+      const curve = Array.from({ length: hours + 1 }, (_, h) => HEAT.base[l.id] + (on ? 0 : HEAT.risePerHour * h));
+      const over = curve.findIndex(t => t > HEAT.limit);
+      return { id: l.id, name: l.name, on, now: curve[0], in6h: curve[hours], hoursToLimit: over < 0 ? null : over, curve };
+    });
+  }
+
+  // ------------------------------------------------------------ tunnels: corridor load at shift change
+  const TUNNEL = { moverShare: 0.30, capacity: 4000, windowMin: 20 };   // people moving per 20-minute window the main corridors can take
+  function tunnels(staggered, levels = LEVELS) {
+    const movers = levels.map(l => ({ id: l.id, name: l.name, people: Math.round(l.pop * TUNNEL.moverShare) }));
+    const windows = staggered
+      ? movers.map((m, i) => ({ start: i * TUNNEL.windowMin, people: m.people, who: m.name }))   // one level per window, Deep last
+      : [{ start: 0, people: movers.reduce((a, m) => a + m.people, 0), who: 'Everyone' }];
+    const peak = Math.max(...windows.map(w => w.people));
+    return { windows, peak, capacity: TUNNEL.capacity, load: peak / TUNNEL.capacity };
+  }
+
+  // ------------------------------------------------------------ safety limits, checked against live numbers
+  function limits(alloc, feeds = FEEDS, bypassed = []) {
+    const below = alloc.filter(o => o.ofDemand < SURVIVAL - 1e-6);
+    const hot = feeds.filter(f => !bypassed.includes(f.id) && f.temp > 95);
+    return [
+      { id: 'min', text: 'Every level ≥ survival minimum (55%)', ok: below.length === 0, why: below.map(o => o.name).join(', ') },
+      { id: 'air', text: 'Air pumps and cooling never cut', ok: below.length === 0, why: below.length ? below.map(o => o.name).join(', ') + ' would lose air' : '' },
+      { id: 'temp', text: 'Feed temperature ≤ 95 °C', ok: hot.length === 0, why: hot.map(f => `${f.name} ${Math.round(f.temp)} °C`).join(', ') },
+    ];
+  }
   window.StrataEngines = { rng, gauss, LEVELS, FEEDS, SURVIVAL, DEEP, allocate, forecast,
     mesh: { build: meshBuild, flood: meshFlood, route: meshRoute }, sig,
-    surface: { doseMult, protection, probeSite, droneTour, BASE_SECONDS, fmtDur }, volunteers, crew, returnPlan, twin };
+    surface: { doseMult, protection, probeSite, droneTour, BASE_SECONDS, fmtDur }, volunteers, crew, returnPlan, twin,
+    LIFE, MEDS, life, HEAT, heat, TUNNEL, tunnels, limits };
 })();

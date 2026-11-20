@@ -28,8 +28,9 @@
   #sp .btn{display:flex;align-items:center;justify-content:center;width:calc(100% - 32px);margin:14px 16px 0;min-height:54px;border-radius:16px;color:#fff;
       font:700 17px Rajdhani,sans-serif;letter-spacing:.1em;cursor:pointer;border:1px solid}
   #sp .note{margin:12px 16px 0;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5}
-  #sp nav{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:10px 8px 30px;background:rgba(8,11,17,.94);border-top:1px solid rgba(120,150,200,.16)}
-  #sp nav button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:44px;font:600 10.5px Inter,sans-serif;color:#8fa0bb;cursor:pointer}
+  #sp nav{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:10px 4px 30px;background:rgba(8,11,17,.94);border-top:1px solid rgba(120,150,200,.16)}
+  #sp nav button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:44px;font:600 11px Inter,sans-serif;color:#8fa0bb;cursor:pointer;position:relative}
+  #sp nav button .dot{position:absolute;top:2px;right:calc(50% - 16px);width:8px;height:8px;border-radius:50%;background:#ff5a4d;box-shadow:0 0 6px #ff5a4d}
   #sp .homebar{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.55);z-index:5;cursor:pointer;border:0;padding:0}
   #sp .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:120px;height:34px;border-radius:20px;background:#000;z-index:5}
   #sp .tile{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:16px;background:rgba(14,20,31,.84);border:1px solid;color:#dbe4f3;cursor:pointer;text-align:left;font-family:Inter,sans-serif}
@@ -62,6 +63,13 @@
   #sp .kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12px;color:#a9b6cc} #sp .kv b{color:#e6eefb;font-weight:600;text-align:right}
   #sp .tbl{width:100%;border-collapse:collapse;font-size:11.5px} #sp .tbl td{padding:5px 2px;border-top:1px solid rgba(120,150,200,.12)} #sp .tbl tr:first-child td{border-top:0}
   #sp .alert{display:flex;gap:10px;align-items:center}
+  #sp .vd{display:flex;align-items:baseline;gap:6px;margin-top:6px} #sp .vn{font:700 38px/1 Rajdhani,sans-serif} #sp .vu{font-size:13px;color:#a9b6cc}
+  #sp .dl{display:inline-flex;gap:6px;align-items:center;margin-top:8px;padding:4px 10px;border-radius:999px;background:rgba(61,220,151,.1);border:1px solid rgba(61,220,151,.35);font:600 12px 'JetBrains Mono',monospace;color:#8ff0c4}
+  #sp .dl s{color:#8fa0bb;text-decoration:line-through}
+  #sp .why{font-size:13px;line-height:1.45;color:#c8d4e6;margin-top:8px}
+  #sp .segbar{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:10px} #sp .segbar i{height:10px;border-radius:3px}
+  #sp .foot{margin:10px 16px 0;font-size:11px;line-height:1.5;color:#8fa0bb}
+  #sp .lc{display:flex;align-items:center;gap:8px;font:700 13px Rajdhani,sans-serif;letter-spacing:.12em}
   #spBadge.hot{color:#ffd2cc;border-color:rgba(255,90,77,.6);background:rgba(40,8,8,.85)}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
@@ -74,16 +82,18 @@
     mesh: '<circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 6h10M6 8l5 8M18 8l-5 8"/>',
     share: '<path d="M12 3v18M5 7h14M5 7l-3 7h6zM19 7l-3 7h6z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
     warn: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    drop: '<path d="M12 3c3.5 4.5 6 7.8 6 11a6 6 0 0 1-12 0c0-3.2 2.5-6.5 6-11z"/>', leaf: '<path d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15"/><path d="M5 19 13 11"/>',
+    pill: '<rect x="3" y="9" width="18" height="7" rx="3.5" transform="rotate(-35 12 12.5)"/><path d="m9.5 8.2 5 8.6"/>', fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c-1-4 1-7 4-6 2 1 0 4-4 6zM14 12c4-1 7 1 6 4-1 2-4 0-6-4zM12 14c1 4-1 7-4 6-2-1 0-4 4-6zM10 12c-4 1-7-1-6-4 1-2 4 0 6 4z"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', apt: '<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/>',
   };
   const ic = (k, c, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
-  const TABS = [['home', 'Home', 'home', '#5fd0ff'], ['power', 'Power', 'bolt', '#ffb020'], ['mesh', 'Mesh', 'mesh', '#5fd0ff'], ['share', 'Share', 'share', '#3ddc97'], ['surface', 'Surface', 'sun', '#c27bff']];
-  const BG = { home: '#0f2236', power: '#2a1c08', mesh: '#0a2433', share: '#0b2a20', surface: '#1f1236', ret: '#3a2a10' };
+  const TABS = [['home', 'Home', 'home', '#5fd0ff'], ['power', 'Power', 'bolt', '#ffb020'], ['life', 'Life', 'drop', '#4fc3f7'], ['mesh', 'Mesh', 'mesh', '#5fd0ff'], ['share', 'Share', 'share', '#3ddc97'], ['surface', 'Surface', 'sun', '#c27bff']];
+  const BG = { home: '#0f2236', power: '#2a1c08', life: '#082436', mesh: '#0a2433', share: '#0b2a20', surface: '#1f1236', ret: '#3a2a10' };
   const S = { scr: 'home', fixed: false, hop: 6, mode: 'dir', signed: false, wave: 0, level: 'The Deep' };
   let tmr = null;
 
   const nav = active => `<nav aria-label="Strata sections">${TABS.map(([id, n, k, c]) =>
-    `<button type="button" data-go="${id}" style="color:${active === id || (active === 'ret' && id === 'surface') ? c : '#8fa0bb'}">${ic(k, 'currentColor')}${n}</button>`).join('')}</nav>`;
+    `<button type="button" data-go="${id}" style="color:${active === id || (active === 'ret' && id === 'surface') ? c : '#8fa0bb'}">${app && app.dots && app.dots()[id] ? '<span class="dot"></span>' : ''}${ic(k, 'currentColor')}${n}</button>`).join('')}</nav>`;
 
   function home() {
     return `<div class="grid"></div>

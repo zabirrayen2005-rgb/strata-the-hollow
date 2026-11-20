@@ -9,7 +9,7 @@
     const S = () => M.S;
     const fmt = s => { if (!isFinite(s)) return '—'; s = Math.max(0, Math.round(s)); return (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0'); };
     const pct = x => (x * 100 < 1 && x > 0 ? (x * 100).toFixed(1) : Math.round(x * 100)) + '%';
-    const BG = { home: '#0f2236', power: '#2a1c08', mesh: '#0a2433', share: '#0b2a20', surface: '#1f1236', ret: '#3a2a10' };
+    const BG = { home: '#0f2236', power: '#2a1c08', life: '#082436', mesh: '#0a2433', share: '#0b2a20', surface: '#1f1236', ret: '#3a2a10' };
     let ask = null;                                  // offline AI: selected question
 
     const pw = (...items) => `<div class="pw">POWERED BY ${items.map(i => `<b>${i}</b>`).join(' · ')}</div>`;
@@ -17,6 +17,18 @@
     const hd = (kick, color, title, tcolor, sub) => `<div class="hd"><div class="kick" style="color:${color}">${kick}</div><h1 style="color:${tcolor}">${title}</h1><div class="sub">${sub}</div></div>`;
     const steps = (n, of = 5) => `<div class="step" aria-label="Step ${n} of ${of}">${Array.from({ length: of }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
     const btn = (act, label, color, bg, dis = false, arg = '') => `<button type="button" class="btn" data-act="${act}" ${arg ? `data-arg="${arg}"` : ''} ${dis ? 'disabled' : ''} style="border-color:${color};background:${bg}">${label}</button>`;
+
+    // card anatomy helpers: verdict number + unit, and a before → after chip
+    const verdict = (value, unit, color, live) => `<div class="vd"><span class="vn" ${live ? `data-live="${live}"` : ''} style="color:${color}">${value}</span><span class="vu">${unit}</span></div>`;
+    const delta = (before, after, unit) => `<span class="dl"><s>${before}</s> → <b>${after}</b> ${unit}</span>`;
+    const RED = '#ff5a4d', AMBER = '#ffb020', GREEN = '#3ddc97';
+    const n0 = v => Math.round(v).toLocaleString('en-US');
+    const d1 = v => isFinite(v) ? v.toFixed(1) : '∞';
+    const d0 = v => isFinite(v) ? String(Math.round(v)) : '∞';
+    const cardOpen = (color, kick, icon) => `<div class="card" style="border-color:${color}55"><div class="lc" style="color:${color}">${ic(icon, color, 18)}<span class="kick" style="color:${color}">${kick}</span></div>`;
+    const lifeBefore = over => E.life(E.allocate(78, 'str'), Object.assign({ leakFixed: S().life.leak, nightLamps: S().life.lamps, triage: S().life.triage }, over));
+    const needSplit = 'Apply the fair split first';
+    const cutOff = L => Math.max(L.dry, L.hungry);
 
     // ------------------------------------------------------------ HOME
     function home() {
@@ -47,6 +59,42 @@
         <div class="row3" style="margin:8px 0 0"><div><div class="lbl">TWINS</div><div class="big" style="color:#9fc0ff">${tw.twins.length}</div></div><div><div class="lbl">LINKS</div><div class="big" style="color:#9fc0ff">${tw.rels.length}</div></div><div><div class="lbl">MODELS</div><div class="big" style="color:#9fc0ff">${tw.models.length}</div></div></div>
         <div class="mono" style="margin-top:8px;font-size:10px;color:#7f93b5;line-height:1.5">dtmi:strata:PowerFeed;1 → powers → dtmi:strata:Level;1<br>Levels, feeds, rooms, lamps and the lift, built from the level data.</div></div>
       ${pw('Azure Digital Twins model (DTDL)', 'MetroStar Comet-style UI')}`;
+    }
+
+    // ------------------------------------------------------------ LIFE (#4 water, #12 food, #10 medicine)
+    function lifeScr() {
+      const s = S(), L = M.life, Ld = M.lifeDir, str = s.applied === 'str', cut = cutOff(L);
+      let body = hd('PROBLEM #4 WATER · #12 FOOD · #10 MEDICINE', '#4fc3f7', 'Life support', '#e6f6ff', 'One grid feeds the pumps, the farms and the clinic. Strata keeps all three running for everyone.');
+      body += '<!--LIFESTRIP-->';
+      body += `<div class="card" style="border-color:${cut ? RED : GREEN}66"><div class="lbl">PEOPLE CUT OFF FROM WATER AND AIR</div>${verdict(n0(cut), 'people', cut ? RED : GREEN, 'cut')}
+        <div class="why" style="color:#8fa0bb">Directorate split: <b style="color:${RED}">${n0(cutOff(Ld))}</b></div></div>`;
+      // water
+      const w0 = lifeBefore({ leakFixed: false }).waterDays;
+      body += cardOpen('#4fc3f7', 'WATER · #4', 'drop') + verdict(d1(L.waterDays), 'days of water', L.dry ? RED : L.waterDays < 3 ? AMBER : '#e6f6ff', 'water');
+      body += `<div class="segbar">${L.water.map(w => `<i title="${w.name}" style="background:${w.on ? GREEN : RED}"></i>`).join('')}</div>`;
+      if (L.dry) body += `<div class="why">${n0(L.dry)} people get no pumped water at all. The store only lasts longer because they get none.</div>`;
+      else body += `<div class="why">Losing ${n0(L.lostPerDay)} L a day${L.leak ? ` · ${n0(L.leak)} of it a leak on the L5 Warrens main loop` : ' · the L5 leak is isolated'}.</div>`;
+      if (s.life.leak) body += delta(d1(w0), d1(L.waterDays), 'days');
+      body += '</div>' + (s.life.leak ? '' : btn('fixleak', str ? 'ISOLATE THE LEAK' : needSplit, '#4fc3f7', 'linear-gradient(90deg,#0b3550,#0e2a40)', !str));
+      // food
+      const f0 = lifeBefore({ nightLamps: false }).foodDays;
+      body += cardOpen(GREEN, 'FOOD · #12', 'leaf') + verdict(d0(L.foodDays), 'days of food', L.hungry ? RED : '#eafff5', 'food');
+      body += `<div class="why">Farms grow <b>${Math.round(L.farmShare * 100)}%</b> of ${n0(L.need)} kcal a day.${L.hungry ? ` ${n0(L.hungry)} people have no kitchens or cold store.` : ''}</div><div class="why" style="color:#8fa0bb">Rations by need: children, medics and night shifts first.</div>`;
+      if (s.life.lamps) body += delta(d1(f0), d0(L.foodDays), 'days');
+      body += '</div>' + (s.life.lamps ? '' : btn('lamps', str ? 'SHIFT GROW LAMPS TO NIGHT' : needSplit, GREEN, 'linear-gradient(90deg,#0c3b2a,#0f4d3a)', !str));
+      // medicine
+      const m0 = lifeBefore({ triage: false }).meds[0].days[5];
+      body += cardOpen('#ff8fb1', 'MEDICINE · #10', 'pill') + `<table class="tbl" style="margin-top:8px">${L.meds.map(m => `<tr><td>${m.name}</td><td class="mono" style="text-align:right;color:${m.worst < 3 ? RED : '#e6eefb'}">${m.worst.toFixed(1)} d</td><td style="text-align:right;color:#8fa0bb">worst: ${m.worstAt}</td></tr>`).join('')}
+        <tr><td colspan="2">Insulin fridge (L2 clinic)</td><td style="text-align:right;color:${L.meds[1].coldOk ? GREEN : RED}">● ${L.meds[1].coldOk ? 'powered' : 'no power'}</td></tr></table>`;
+      if (s.life.triage) body += delta('Deep inhalers ' + m0.toFixed(1), L.meds[0].days[5].toFixed(1), 'days');
+      body += '</div>' + (s.life.triage ? '' : btn('triage', str ? 'SEND STOCK BY NEED' : needSplit, '#ff8fb1', 'linear-gradient(90deg,#4a1830,#2a1757)', !str));
+      body += '<!--LIFEMORE-->';
+      body += cop(str
+        ? `Under the Directorate split <b>${n0(cutOff(Ld))}</b> people in the Warrens and the Deep lose pumped water, air and kitchens. Strata keeps every level above ${Math.round(E.SURVIVAL * 100)}%${s.life.leak ? ', isolated the L5 leak (water now <b>' + d1(L.waterDays) + ' days</b>)' : ', and can isolate the L5 leak (+' + d1(lifeBefore({ leakFixed: true }).waterDays - L.waterDays) + ' days)'}${s.life.lamps ? ', moved grow lamps to the night window (<b>' + d0(L.foodDays) + ' days</b> of food)' : ''}${s.life.triage ? ' and sent inhalers where lungs are worst' : ''}.`
+        : `Under the current Directorate plan <b>${n0(cut)}</b> people in the Warrens and the Deep get no pumped water, air or kitchens. The water store looks long only because they get none. Apply Strata's fair split on Fair share first.`);
+      body += `<div class="foot">Assumptions: 15 L water and 2,100 kcal per person per day · recyclers recover 60–90% · 3.5 m² per person minimum.</div>`;
+      body += pw('Azure Digital Twins model', 'Caelon Prism-style energy model');
+      return body;
     }
 
     // ------------------------------------------------------------ POWER (Act 1: detect, explain, decide)
@@ -187,13 +235,15 @@
       return body;
     }
 
-    const R = { home, power, share, mesh, surface, ret };
+    const R = { home, power, life: lifeScr, share, mesh, surface, ret };
     return {
       bg: BG,
       render: scr => (R[scr] || home)(),
+      dots: () => ({ life: !!M.life && (cutOff(M.life) > 0 || !!M.life.leak) }),
       live(el) {
         const set = (k, v) => { const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
         set('cd', S().applied === 'str' ? '6 H+' : fmt(M.cd));
+        if (M.life) { set('cut', n0(cutOff(M.life))); set('water', d1(M.life.waterDays)); set('food', d0(M.life.foodDays)); }
         set('range', String(M.inRange)); if (S().broadcast) set('reach', String(M.reach));
         if (P.state.level === 'The surface') {
           set('dose', '×' + M.dose.toFixed(2) + ' background'); set('drone', M.droneMsg);
