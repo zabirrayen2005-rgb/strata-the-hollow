@@ -29,7 +29,7 @@
     const lifeBefore = over => E.life(E.allocate(78, 'str'), Object.assign({ leakFixed: S().life.leak, nightLamps: S().life.lamps, triage: S().life.triage }, over));
     const needSplit = 'Apply the fair split first';
     const cutOff = L => Math.max(L.dry, L.hungry);
-    let stripShown = null, chipTip = null;                  // last strip state drawn (for the cross-fade), tapped level chip
+    let stripShown = null, chipTip = null, heatDir = false;                  // last strip state drawn (for the cross-fade), tapped level chip
     function lifeStrip(mode) {
       const L = E.life(E.allocate(78, mode)), from = stripShown || mode;
       const Lf = E.life(E.allocate(78, from));
@@ -102,7 +102,27 @@
         <tr><td colspan="2">Insulin fridge (L2 clinic)</td><td style="text-align:right;color:${L.meds[1].coldOk ? GREEN : RED}">● ${L.meds[1].coldOk ? 'powered' : 'no power'}</td></tr></table>`;
       if (s.life.triage) body += delta('Deep inhalers ' + m0.toFixed(1), L.meds[0].days[5].toFixed(1), 'days');
       body += '</div>' + (s.life.triage ? '' : btn('triage', str ? 'SEND STOCK BY NEED' : needSplit, '#ff8fb1', 'linear-gradient(90deg,#4a1830,#2a1757)', !str));
-      body += '<!--LIFEMORE-->';
+      // air and cooling (#3, #9)
+      const H = E.heat(E.allocate(78, heatDir ? 'dir' : (str ? 'str' : 'dir'))), on = H.filter(h => h.on).length;
+      body += cardOpen('#9fe7ff', 'AIR · #9 · COOLING · #3', 'fan') + verdict(`${on} of 6`, 'levels with air pumps on', on === 6 ? GREEN : RED);
+      body += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:10px">${H.map(h => {
+        const X = i => (i / 6 * 116 + 2).toFixed(1), Y = t => (34 - (t - 22) / 21 * 32).toFixed(1), hot = h.hoursToLimit !== null;
+        return `<div><div style="display:flex;justify-content:space-between;font-size:11px;color:#c8d4e6"><span>${h.name}</span><span class="mono" style="color:${hot ? RED : '#c8d4e6'}">${h.in6h} °C${hot ? ' · ' + h.hoursToLimit + ' h' : ''}</span></div>
+          <svg width="120" height="36" viewBox="0 0 120 36" style="display:block;width:100%"><line x1="0" y1="${Y(35)}" x2="120" y2="${Y(35)}" stroke="${RED}" stroke-dasharray="3 3" stroke-opacity=".8"/>
+          <polyline points="${h.curve.map((t, i) => X(i) + ',' + Y(t)).join(' ')}" fill="none" stroke="${hot ? RED : '#9fe7ff'}" stroke-width="2"/></svg></div>`; }).join('')}</div>
+        <div class="why" style="color:#8fa0bb">Next 6 hours · dashed line: 35 °C limit</div>`;
+      body += `<div class="seg" style="margin:10px 0 0" role="group"><button type="button" data-act="heat" data-arg="0" style="${!heatDir ? 'background:rgba(61,220,151,.18);color:#8ff0c4' : ''}">${str ? 'STRATA SPLIT' : 'CURRENT PLAN'}</button><button type="button" data-act="heat" data-arg="1" style="${heatDir ? 'background:rgba(255,90,77,.18);color:#ffb4ab' : ''}">SHOW DIRECTORATE SPLIT</button></div>`;
+      const Hd = E.heat(E.allocate(78, 'dir')), deepD = Hd[5];
+      body += '</div>' + cop(`Strata never lets a level fall below ${Math.round(E.SURVIVAL * 100)}%. That share is what runs air pumps and cooling. Under the Directorate split the Deep passes 35 °C in <b>${deepD.hoursToLimit} hours</b> and reaches <b>${deepD.in6h} °C</b>.`);
+      // lungs and sunlight (#9, #11)
+      const sunTxt = c => c === null ? 'no power for lamps' : c === 1 ? 'tonight' : 'night ' + c;
+      const nights = Math.max(...L.sun.map(x => x.coveredBy || 0));
+      body += cardOpen('#ffd36b', 'LUNGS · #9 · SUNLIGHT · #11', 'sun') + verdict(String(L.bays), `sun-lamp bays tonight · ${n0(L.seats)} sessions of 20 minutes`, '#ffd36b');
+      body += `<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">${L.air.map(a => `<div style="display:grid;grid-template-columns:76px 1fr 30px;gap:8px;align-items:center;font-size:12px;color:#c8d4e6"><span>${a.name}</span><div class="bar" style="height:10px"><i style="width:${a.lung}%;background:${a.lung < 70 ? AMBER : '#ffd36b'}"></i></div><span class="mono" style="text-align:right;color:${a.lung < 70 ? AMBER : '#c8d4e6'}">${a.lung}</span></div>`).join('')}</div>
+        <div class="lbl" style="margin-top:12px">SUN-LAMP SCHEDULE · WORST LUNGS FIRST · ${nights} NIGHT${nights === 1 ? '' : 'S'}</div>
+        <table class="tbl" style="margin-top:4px">${L.sun.map(x => `<tr><td>${x.name}</td><td class="mono" style="color:#8fa0bb">lungs ${x.lung}</td><td style="text-align:right;color:${x.coveredBy === null ? RED : x.coveredBy === 1 ? GREEN : '#c8d4e6'}">${sunTxt(x.coveredBy)}</td></tr>`).join('')}</table>`;
+      if (s.life.lamps) body += `<div class="why" style="color:#8fa0bb">Grow lamps take 10 MW of the night spare. Food first, then light.</div>`;
+      body += '</div>' + pw('Azure Digital Twins model');
       body += cop(str
         ? `Under the Directorate split <b>${n0(cutOff(Ld))}</b> people in the Warrens and the Deep lose pumped water, air and kitchens. Strata keeps every level above ${Math.round(E.SURVIVAL * 100)}%${s.life.leak ? ', isolated the L5 leak (water now <b>' + d1(L.waterDays) + ' days</b>)' : ', and can isolate the L5 leak (+' + d1(lifeBefore({ leakFixed: true }).waterDays - L.waterDays) + ' days)'}${s.life.lamps ? ', moved grow lamps to the night window (<b>' + d0(L.foodDays) + ' days</b> of food)' : ''}${s.life.triage ? ' and sent inhalers where lungs are worst' : ''}.`
         : `Under the current Directorate plan <b>${n0(cut)}</b> people in the Warrens and the Deep get no pumped water, air or kitchens. The water store looks long only because they get none. Apply Strata's fair split on Fair share first.`);
@@ -270,6 +290,7 @@
         const arg = el && el.dataset.arg;
         if (a === 'go-share') { P.go('share'); return; }
         if (a === 'ask') { ask = arg; P.render(); return; }
+        if (a === 'heat') { heatDir = arg === '1'; P.render(); return; }
         if (a === 'chip') { chipTip = chipTip === +arg ? null : +arg; P.render(); return; }
         if (a === 'none') return;
         P.buzz();

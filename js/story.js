@@ -327,6 +327,7 @@
       }
       if (id === 'medic') {
         if (end) return ['Every screen down here is showing the probe’s reading. Signed. Nobody can say it’s fake.'];
+        if (S.life.triage) return ['The inhalers came down the mesh this morning. First time in months the Deep got first pick.'];
         if (st < 3) return ['If the air pumps lose power, the cough ward fills in an hour. Keep the Deep lit, whoever you are.'];
         return ['Pumps are running. Go check on your daughter.'];
       }
