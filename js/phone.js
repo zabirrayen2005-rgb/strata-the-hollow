@@ -43,6 +43,26 @@
   #sp .wave .n{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 17px Rajdhani,sans-serif;border:2px solid}
   @keyframes spPulse{0%,100%{opacity:1}50%{opacity:.35}} @keyframes spSweep{to{transform:rotate(360deg)}}
   #sp .pulse{animation:spPulse 1.4s infinite}
+  /* ---- live app (js/app.js) ---- */
+  #sp .body{position:absolute;left:0;right:0;top:0;bottom:84px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:18px}
+  #sp .body::-webkit-scrollbar{display:none}
+  #sp .body.in{animation:spIn .32s cubic-bezier(.2,.8,.2,1)}
+  @keyframes spIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes spBuzz{0%,100%{translate:0 0}20%{translate:-3px 0}40%{translate:3px 0}60%{translate:-2px 0}80%{translate:2px 0}}
+  #sp.buzz .scr{animation:spBuzz .28s linear}
+  #sp .btn:active,#sp .tile:active,#sp .chipq:active{transform:scale(.97)}
+  #sp .btn[disabled]{opacity:.45;cursor:default}
+  #sp .pw{margin:10px 16px 0;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#6f7f99;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #sp .pw b{color:#9fb3d1;font-weight:700}
+  #sp .cop{margin:12px 16px 0;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(40,90,200,.16),rgba(120,60,200,.12));border:1px solid rgba(120,160,255,.35);font-size:12.5px;line-height:1.5;color:#dbe6ff}
+  #sp .cop .who{font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#9fc0ff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  #sp .step{margin:12px 16px 0;display:flex;gap:6px}
+  #sp .step i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.1)} #sp .step i.on{background:#5fd0ff}
+  #sp .chipq{display:inline-flex;margin:0 6px 6px 0;padding:8px 10px;border-radius:12px;border:1px solid rgba(95,208,255,.35);background:rgba(14,20,31,.9);color:#cfe9ff;font:500 12px Inter,sans-serif;cursor:pointer}
+  #sp .kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12px;color:#a9b6cc} #sp .kv b{color:#e6eefb;font-weight:600;text-align:right}
+  #sp .tbl{width:100%;border-collapse:collapse;font-size:11.5px} #sp .tbl td{padding:5px 2px;border-top:1px solid rgba(120,150,200,.12)} #sp .tbl tr:first-child td{border-top:0}
+  #sp .alert{display:flex;gap:10px;align-items:center}
+  #spBadge.hot{color:#ffd2cc;border-color:rgba(255,90,77,.6);background:rgba(40,8,8,.85)}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   const fl = document.createElement('link'); fl.rel = 'stylesheet';
@@ -183,7 +203,16 @@
   const island = document.createElement('div'); island.className = 'island';
   const hb = document.createElement('button'); hb.className = 'homebar'; hb.type = 'button'; hb.setAttribute('aria-label', 'Put the phone away');
   ph.append(scr, island, hb); document.body.append(dim, ph, badge);
-  function render() { scr.style.background = `radial-gradient(120% 60% at 50% -10%, ${BG[S.scr]} 0%, #05070b 58%)`; scr.innerHTML = R[S.scr](); }
+  let app = null, lastScr = null;
+  function render() {
+    const bg = (app && app.bg && app.bg[S.scr]) || BG[S.scr] || '#0f2236';
+    scr.style.background = `radial-gradient(120% 60% at 50% -10%, ${bg} 0%, #05070b 58%)`;
+    if (!app) { scr.innerHTML = R[S.scr](); return; }
+    const old = scr.querySelector('.body'), keep = old && lastScr === S.scr ? old.scrollTop : 0;
+    scr.innerHTML = `<div class="body${lastScr !== S.scr ? ' in' : ''}">${app.render(S.scr)}</div>${app.nav ? app.nav(S.scr) : nav(S.scr)}`;
+    scr.querySelector('.body').scrollTop = keep; lastScr = S.scr;
+    if (app.live) app.live(scr);
+  }
   render();
 
   let open = false, hooks = {};
@@ -209,6 +238,7 @@
     if (e.target.closest('.homebar')) { setOpen(false); return; }
     if (go) { S.scr = go.dataset.go; render(); hooks.onTap && hooks.onTap(); return; }
     if (wv) { S.wave = +wv.dataset.wave; render(); hooks.onTap && hooks.onTap(); return; }
+    if (act && app) { if (!act.disabled) { app.act(act.dataset.act, act); hooks.onTap && hooks.onTap(); } return; }
     if (act) {
       const a = act.dataset.act;
       if (a === 'reroute') S.fixed = !S.fixed;
@@ -221,6 +251,12 @@
   dim.addEventListener('click', () => setOpen(false));
   window.StrataPhone = {
     open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(!open), get isOpen() { return open; },
-    setLevel(name) { S.level = name; if (S.scr === 'home') render(); }, show, hooks(h) { hooks = h; }, state: S,
+    setLevel(name) { S.level = name; if (S.scr === 'home' || app) render(); }, show, hooks(h) { hooks = h; }, state: S,
+    // live app API (js/app.js)
+    use(a) { app = a; render(); }, render, go(scr) { S.scr = scr; render(); },
+    refresh() { if (app && app.live && open) app.live(scr); },
+    buzz() { ph.classList.remove('buzz'); void ph.offsetWidth; ph.classList.add('buzz'); },
+    badge(text, hot) { badge.textContent = text || 'STRATA · TAB'; badge.classList.toggle('hot', !!hot); },
+    ui: { ic, nav, I },
   };
 })();

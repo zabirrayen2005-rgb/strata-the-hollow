@@ -265,6 +265,7 @@
   let level = 'D', state = 'menu', health = 100, surfT = 0, deathT = 0, travelling = false, flashTarget = 0;
   const liftDoor = { D: 0, R: 0, S: 0 }; // 0 closed .. 1 open
   const aptDoor = {};
+  const world = { brown: 0, dark: 0 };   // story-driven: Deep brownout flicker (0..1) and blackout (0..1)
   const SP = window.StrataPhone;   // team's Strata phone (js/phone.js)
   for (const l of LV) for (const d of G[l].doors) aptDoor[d.name] = 0;
 
@@ -513,7 +514,14 @@
     if (state !== 'dead') camera.rotation.z = moving ? Math.sin(P.bob) * .004 : 0;
     flashTarget = flashOn ? (level === 'S' ? 2.2 : 3.2) : 0; flash.intensity = lerp(flash.intensity, flashTarget, .25);
     // halos flicker + dust drift
+    if (level === 'D') {
+      const w = world, f = Math.sin(tAcc * 31) * Math.sin(tAcc * 11.7) * Math.sin(tAcc * 5.3);
+      const dip = w.brown > 0 && f > .55 - w.brown * .35 ? w.brown : 0;
+      finalPass.uniforms.exposure.value = LOOK.D.expo * (1 - .62 * w.dark) * (1 - .45 * dip);
+      for (const s of halos.D) s.material.opacity = s.userData.base * (1 - .9 * w.dark) * (1 - .8 * dip * (s.userData.ph % 1 > .3 ? 1 : .4));
+    }
     for (const s of halos[level]) {
+      if (level === 'D' && (world.brown > 0 || world.dark > 0)) continue;
       if (s.userData.flick) { const n = Math.sin(tAcc * 23 + s.userData.ph) * Math.sin(tAcc * 7.3 + s.userData.ph * 2); s.material.opacity = s.userData.base * (n > .85 ? .35 : 1); }
     }
     if (level === 'D') {
@@ -552,6 +560,7 @@
     flash: () => { flashOn = !flashOn; blip(2400, .04, 'square', .05); },
     pause: () => { if (state !== 'play') return; state = 'paused'; $('menu').style.display = 'flex'; $('go').textContent = 'Tap to resume'; },
     setDragMode: v => { dragMode = v; },
+    world, banner,
     phone: SP || null, phoneCanOpen,
   };
   story = window.StoryInit ? window.StoryInit(ctx) : null;
