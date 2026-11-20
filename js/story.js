@@ -307,7 +307,7 @@
       if (!M.inRange) { phone().buzz(); toast('STRATA', 'No phones in range. Walk into the crowd: the queues and the tables.', 4200); return; }
       M.bcT = 0; M.bcHop = M.hop.slice(); S.broadcast = true; save();
       toast('MESH', `Warning passed hand to hand: ${M.reach} phones in ${Math.max(...M.hop)} hops. No towers, no Directorate.`, 5200);
-      if (S.stage === 4) setStage(5); else rerender();
+      if (S.stage >= 3 && S.stage <= 4) setStage(5); else rerender();   // a quick broadcast before Mesh registered still counts
       void me;
     }
     async function actAva() {
@@ -558,7 +558,7 @@
           upBeam.position.copy(mid); upBeam.scale.set(1, a.distanceTo(b), 1); upBeam.lookAt(b); upBeam.rotateX(Math.PI / 2);
           upBeam.material.opacity = Math.max(.25, .9 * Math.exp(-M.sendT * .4)) * (.8 + .2 * Math.sin(t * 8));
         }
-        M.dose = E.surface.doseMult(HOT, C.P.x, C.P.y);
+        M.dose = C.rad.mult;
       }
 
       // NPC idle: breathe and turn toward the player when close
@@ -582,7 +582,7 @@
         if (S.stage < 3 && S.applied !== 'str') extra = (M.dark ? 'The Deep is dark' : 'Dark in ' + fmt(M.cd));
         else if (tg && st.where === C.level) extra = Math.round(Math.hypot(C.P.x - tg[0], C.P.y - tg[1])) + ' m';
         else if (st.where && st.where !== C.level) extra = 'use the lift';
-        if (S.stage >= 3 && S.stage <= 5 && C.level === 'D') { meshStatus(); extra = (extra ? extra + ' · ' : '') + M.inRange + ' phones in range'; }
+        if (S.stage >= 3 && S.stage <= 5 && C.level === 'D') { meshStatus(); extra = (extra ? extra + ' · ' : '') + M.inRange + ' in range of you'; }
         $('objd').textContent = extra;
       }
       liveT -= dt; if (liveT <= 0) { liveT = .25; const p = phone(); if (p) p.refresh(); }
@@ -615,7 +615,7 @@
       S = Object.assign(fresh(), keep);
       S.flags.introBuzz = 1;
       if (n >= 2) S.bypass = true;
-      if (n >= 3) { S.applied = 'str'; S.flags.powerAt = S.played - 60; S.flags.supplies = 1; }
+      if (n >= 3) { S.applied = 'str'; S.flags.powerAt = n >= 4 ? S.played - 60 : S.played; S.flags.supplies = 1; }   // jump(3): the network cut still comes 14 s later
       if (n >= 4) S.netCut = true;
       if (n >= 5) S.broadcast = true;
       if (opts.life) S.life = { leak: true, lamps: true, triage: true };
@@ -655,6 +655,8 @@
     const api = {
       update, interact, canTravel, deny, onLevel, onDeath, newGame, jump,
       busy: () => !!(busy.dlg || busy.note),
+      levelSub: l => l === 'S' ? 'Directorate: lethal in minutes' : null,
+      radNote: () => S.sent && S.probeAt ? 'Signed reading: ' + E.surface.protection(E.surface.doseMult(HOT, S.probeAt[0], S.probeAt[1]))[1].label + ' in a sealed suit' : null,
       prompt: () => { if (busy.dlg || busy.note) return { n: '', d: '' }; const it = nearestInteractable(); return it ? { n: it.n, d: it.d } : null; },
       radScale: () => 1,
       hasSave: () => S.stage > 0 || S.notes.length > 0,

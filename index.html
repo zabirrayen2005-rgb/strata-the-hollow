@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
 <title>Strata — The Hollow</title>
 <style>
   :root { --amber:#f2b45a; --ink:#e9e4da; --dim:#9a958c; --red:#e0483f; --green:#8cff6a; }
@@ -60,6 +61,7 @@
   #obj { left: 22px; top: 40px; max-width: min(360px, 60vw); }
   #obj .l { font-size: 10.5px; letter-spacing: .26em; text-transform: uppercase; color: var(--amber); }
   #obj .t { margin-top: 4px; font-size: 13.5px; line-height: 1.4; text-shadow: 0 1px 8px rgba(0,0,0,.9); }
+  body.video #fps, body.video #keys { display: none !important; }
   #obj .o { margin-top: 6px; font-size: 12px; color: var(--dim); letter-spacing: .04em; }
   #obj .d { margin-top: 2px; font-size: 11.5px; color: var(--dim); letter-spacing: .08em; font-variant-numeric: tabular-nums; }
   #inv { left: 22px; bottom: 38px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 46vw; }
@@ -173,14 +175,14 @@
 </div></div>
 <div id="load"><div class="t" id="loadt">Loading the Hollow</div><div class="bar"><div id="loadb"></div></div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="vendor/three/three.min.js"></script>
+<script src="vendor/three/GLTFLoader.js"></script>
+<script src="vendor/three/CopyShader.js"></script>
+<script src="vendor/three/LuminosityHighPassShader.js"></script>
+<script src="vendor/three/EffectComposer.js"></script>
+<script src="vendor/three/RenderPass.js"></script>
+<script src="vendor/three/ShaderPass.js"></script>
+<script src="vendor/three/UnrealBloomPass.js"></script>
 <script src="data/levels.js"></script>
 <script src="assets/textures.js"></script>
 <script src="assets/lightmaps.js"></script>

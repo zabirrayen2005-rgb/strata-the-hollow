@@ -10,7 +10,7 @@
   #sp.open{cursor:default}
   #sp.mini:hover{box-shadow:0 0 0 9px #0e1116,0 0 0 11px #5fd0ff,0 0 30px rgba(95,208,255,.45)}
   #spBadge{position:fixed;z-index:22;font:600 11px/1 'JetBrains Mono',ui-monospace,monospace;color:#9fdcff;letter-spacing:.12em;background:rgba(8,12,20,.8);
-      border:1px solid rgba(95,208,255,.35);border-radius:6px;padding:5px 7px;pointer-events:none;transition:opacity .3s;white-space:nowrap}
+      border:1px solid rgba(95,208,255,.35);border-radius:6px;padding:5px 7px;pointer-events:none;transition:opacity .3s;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
   #sp *{box-sizing:border-box}
   #sp .scr{position:absolute;inset:0;display:none;flex-direction:column;font-family:Inter,system-ui,sans-serif;color:#dbe4f3;overflow:hidden}
   #sp .scr.on{display:flex}
@@ -21,7 +21,7 @@
   #sp .sub{font-size:13px;color:#a9b6cc}
   #sp .card{position:relative;margin:12px 16px 0;padding:14px;border-radius:18px;background:rgba(14,20,31,.86);border:1px solid rgba(120,150,200,.16)}
   #sp .mono{font-family:'JetBrains Mono',monospace}
-  #sp .lbl{font:500 10.5px 'JetBrains Mono',monospace;color:#8fa0bb;letter-spacing:.1em}
+  #sp .lbl{font:500 11px 'JetBrains Mono',monospace;color:#8fa0bb;letter-spacing:.1em}
   #sp .big{font:700 22px Rajdhani,sans-serif}
   #sp .row3{margin:12px 16px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   #sp .row3>div{padding:10px;border-radius:14px;background:rgba(14,20,31,.86);border:1px solid rgba(120,150,200,.16)}
@@ -53,15 +53,15 @@
   #sp.buzz .scr{animation:spBuzz .28s linear}
   #sp .btn:active,#sp .tile:active,#sp .chipq:active{transform:scale(.97)}
   #sp .btn[disabled]{opacity:.45;cursor:default}
-  #sp .pw{margin:10px 16px 0;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#6f7f99;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #sp .pw{margin:10px 16px 0;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#9fb3d1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   #sp .pw b{color:#9fb3d1;font-weight:700}
   #sp .cop{margin:12px 16px 0;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(40,90,200,.16),rgba(120,60,200,.12));border:1px solid rgba(120,160,255,.35);font-size:12.5px;line-height:1.5;color:#dbe6ff}
-  #sp .cop .who{font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#9fc0ff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  #sp .cop .who{font:600 11px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#9fc0ff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
   #sp .step{margin:12px 16px 0;display:flex;gap:6px}
   #sp .step i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.1)} #sp .step i.on{background:#5fd0ff}
   #sp .chipq{display:inline-flex;margin:0 6px 6px 0;padding:8px 10px;border-radius:12px;border:1px solid rgba(95,208,255,.35);background:rgba(14,20,31,.9);color:#cfe9ff;font:500 12px Inter,sans-serif;cursor:pointer}
   #sp .kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12px;color:#a9b6cc} #sp .kv b{color:#e6eefb;font-weight:600;text-align:right}
-  #sp .tbl{width:100%;border-collapse:collapse;font-size:11.5px} #sp .tbl td{padding:5px 2px;border-top:1px solid rgba(120,150,200,.12)} #sp .tbl tr:first-child td{border-top:0}
+  #sp .tbl{width:100%;border-collapse:collapse;font-size:12px} #sp .tbl td{padding:5px 2px;border-top:1px solid rgba(120,150,200,.12)} #sp .tbl tr:first-child td{border-top:0}
   #sp .alert{display:flex;gap:10px;align-items:center}
   #sp .vd{display:flex;align-items:baseline;gap:6px;margin-top:6px} #sp .vn{font:700 38px/1 Rajdhani,sans-serif} #sp .vu{font-size:13px;color:#a9b6cc}
   #sp .dl{display:inline-flex;gap:6px;align-items:center;margin-top:8px;padding:4px 10px;border-radius:999px;background:rgba(61,220,151,.1);border:1px solid rgba(61,220,151,.35);font:600 12px 'JetBrains Mono',monospace;color:#8ff0c4}
@@ -85,12 +85,17 @@
   #sp .qa .src{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;border:1px solid rgba(120,150,200,.3);font:500 11px 'JetBrains Mono',monospace;color:#9fb3d1}
   @keyframes spDots{0%,80%,100%{opacity:.25}40%{opacity:1}} #sp .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9fdcff;margin-right:4px;animation:spDots 1s infinite} #sp .dots i:nth-child(2){animation-delay:.15s} #sp .dots i:nth-child(3){animation-delay:.3s}
   #sp .askbar{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);margin:14px 16px 0;min-height:46px;padding:0 14px;border-radius:14px;border:1px solid rgba(95,208,255,.4);background:rgba(4,8,14,.85);color:#9fb3d1;font:500 14px Inter,sans-serif;cursor:text;text-align:left}
+  #sp .card.glow{box-shadow:0 0 0 1px #3ddc97,0 0 26px rgba(61,220,151,.45)}
+  #sp .card{transition:box-shadow .4s}
+  @keyframes spTile{0%,100%{box-shadow:0 0 0 0 rgba(79,195,247,0)}50%{box-shadow:0 0 0 2px rgba(79,195,247,.85),0 0 22px rgba(79,195,247,.5)}}
+  #sp .tile.hot{animation:spTile 1.4s infinite}
+  #sp .tile[aria-disabled="true"]{opacity:.55;cursor:default}
   #sp .lc{display:flex;align-items:center;gap:8px;font:700 13px Rajdhani,sans-serif;letter-spacing:.12em}
   #spBadge.hot{color:#ffd2cc;border-color:rgba(255,90,77,.6);background:rgba(40,8,8,.85)}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   const fl = document.createElement('link'); fl.rel = 'stylesheet';
-  fl.href = 'https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap';
+  fl.href = 'vendor/fonts/fonts.css';   // self-hosted: works with no Wi-Fi
   document.head.appendChild(fl);
 
   const I = {
@@ -116,7 +121,7 @@
     <div class="hd" style="flex-direction:row;align-items:center;justify-content:space-between">
       <div><div style="font:700 28px Rajdhani,sans-serif;letter-spacing:.34em;color:#eaf4ff">STR<span style="color:#5fd0ff">A</span>TA</div>
       <div class="kick" style="color:#8fa0bb;font-size:11px">${S.level.toUpperCase()} · SECTOR 7</div></div>
-      <div class="mono" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,90,77,.5);background:rgba(255,90,77,.1);font-size:10.5px;color:#ffb4ab;letter-spacing:.08em">
+      <div class="mono" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,90,77,.5);background:rgba(255,90,77,.1);font-size:11px;color:#ffb4ab;letter-spacing:.08em">
       <span class="pulse" style="width:7px;height:7px;border-radius:50%;background:#ff5a4d"></span>NET CUT</div></div>
     <div style="position:relative;margin:20px auto 0;width:230px;height:230px">
       <svg width="230" height="230" viewBox="0 0 236 236" aria-hidden="true"><circle cx="118" cy="118" r="104" fill="none" stroke="rgba(95,208,255,.12)" stroke-width="2"/>
@@ -125,7 +130,7 @@
       <circle cx="118" cy="118" r="74" fill="none" stroke="rgba(95,208,255,.25)" stroke-width="1" stroke-dasharray="2 6"/></svg>
       <div style="position:absolute;inset:14px;border-radius:50%;background:conic-gradient(from 0deg,rgba(95,208,255,.22),transparent 18%);animation:spSweep 4s linear infinite"></div>
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-        <div class="mono" style="font-size:10.5px;letter-spacing:.2em;color:${S.fixed ? '#8ff0c4' : '#ffcf7a'}">${S.fixed ? 'POWER SECURED' : 'NEXT BLACKOUT'}</div>
+        <div class="mono" style="font-size:11px;letter-spacing:.2em;color:${S.fixed ? '#8ff0c4' : '#ffcf7a'}">${S.fixed ? 'POWER SECURED' : 'NEXT BLACKOUT'}</div>
         <div style="font:700 54px/1 Rajdhani,sans-serif;color:#fff4dd;text-shadow:0 0 24px ${S.fixed ? 'rgba(61,220,151,.45)' : 'rgba(255,176,32,.45)'}">${S.fixed ? '6 H+' : '1:52'}</div>
         <div style="font-size:12px;color:#a9b6cc">${S.fixed ? '3 of 500 forecasts dark' : '94% of 500 forecasts'}</div></div></div>
     <div style="position:relative;padding:18px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -147,9 +152,9 @@
     <div class="card" style="border-color:rgba(255,176,32,.3)"><div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lbl">DEEP POWER · NEXT 6 H</div>
       <div class="big" style="color:${f ? '#3ddc97' : '#ffb020'}">${f ? 'SAFE 6 H+' : 'DARK IN 1:52'}</div></div>
       <svg width="326" height="170" viewBox="0 0 326 170" style="display:block;margin-top:8px" role="img" aria-label="Forecast fan chart">
-      <line x1="0" y1="128" x2="326" y2="128" stroke="#ff5a4d" stroke-dasharray="4 4"/><text x="4" y="122" fill="#ff8a80" font-size="10" font-family="JetBrains Mono,monospace">LIGHTS-OUT LINE</text>
+      <line x1="0" y1="128" x2="326" y2="128" stroke="#ff5a4d" stroke-dasharray="4 4"/><text x="4" y="122" fill="#ff8a80" font-size="11" font-family="JetBrains Mono,monospace">LIGHTS-OUT LINE</text>
       ${paths}<path d="${med}" fill="none" stroke="${f ? '#7dffc4' : '#ffd27a'}" stroke-width="2.5"/>
-      <text x="4" y="164" fill="#8fa0bb" font-size="10" font-family="JetBrains Mono,monospace">NOW</text><text x="290" y="164" fill="#8fa0bb" font-size="10" font-family="JetBrains Mono,monospace">+6 H</text></svg></div>
+      <text x="4" y="164" fill="#8fa0bb" font-size="11" font-family="JetBrains Mono,monospace">NOW</text><text x="290" y="164" fill="#8fa0bb" font-size="11" font-family="JetBrains Mono,monospace">+6 H</text></svg></div>
     <div class="row3"><div><div class="lbl">FEED 1</div><div class="big" style="color:#3ddc97">OK</div></div><div><div class="lbl">FEED 2</div><div class="big" style="color:#3ddc97">OK</div></div>
       <div style="border-color:${f ? 'rgba(95,208,255,.5)' : 'rgba(255,90,77,.55)'}"><div class="lbl">FEED 3</div><div class="big" style="color:${f ? '#5fd0ff' : '#ff5a4d'}">${f ? 'BYPASS' : 'FAILING'}</div></div></div>
     <div class="note" style="background:rgba(14,20,31,.86);border:1px solid rgba(120,150,200,.16);color:#c9d4e6">${f ? 'Feed 3 is bypassed. The lift and the Deep’s air pumps now run on feeds 1 and 2. Only 3 of 500 forecasts still go dark in the next 6 hours.' : 'Feed 3 is overheating. In 94% of forecasts the Deep loses power within 2 hours, and the lift stops with it. The Directorate has issued no warning.'}</div>
@@ -161,7 +166,7 @@
     let seed = 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     const names = ['L1 RING', 'L2 MARKET', 'L3 FARMS', 'L4 WORKS', 'L5 WARRENS', 'L6 DEEP'];
     const nodes = []; for (let b = 0; b < 6; b++) for (let k = 0; k < 7; k++) nodes.push({ b, x: 48 + k * 42 + (rnd() - .5) * 18, y: 28 + b * 54 + (rnd() - .5) * 26 });
-    let g = names.map((n, i) => `<line x1="34" y1="${28 + i * 54}" x2="342" y2="${28 + i * 54}" stroke="rgba(120,150,200,.12)"/><text x="4" y="${32 + i * 54}" fill="${i >= reached ? '#9fdcff' : '#5d6b82'}" font-size="10" font-family="JetBrains Mono,monospace">${n}</text>`).join('');
+    let g = names.map((n, i) => `<line x1="34" y1="${28 + i * 54}" x2="342" y2="${28 + i * 54}" stroke="rgba(120,150,200,.12)"/><text x="4" y="${32 + i * 54}" fill="${i >= reached ? '#9fdcff' : '#9fb3d1'}" font-size="11" font-family="JetBrains Mono,monospace">${n}</text>`).join('');
     for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { const a = nodes[i], c = nodes[j]; if (Math.hypot(a.x - c.x, a.y - c.y) < 62) { const on = a.b >= reached && c.b >= reached; g += `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${c.x.toFixed(1)}" y2="${c.y.toFixed(1)}" stroke="${on ? 'rgba(95,208,255,.75)' : 'rgba(120,150,200,.14)'}" stroke-width="${on ? 1.6 : 1}"/>`; } }
     g += nodes.map(n => `<circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.b >= reached ? 5 : 3.5}" fill="${n.b >= reached ? '#5fd0ff' : '#33405a'}"/>`).join('');
     const lv = 6 - reached;
@@ -194,8 +199,8 @@
     const sc = s ? '#3ddc97' : '#ffb020';
     return `<div class="hd"><div class="kick" style="color:#d6b6ff">PROBLEM #13 · IS THE SURFACE SAFE?</div><h1 style="color:#f4ecff">Surface truth</h1><div class="sub">A probe at the hatch measures the air and signs every reading.</div></div>
     <div style="margin:14px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div style="padding:12px;border-radius:14px;background:rgba(255,90,77,.07);border:1px solid rgba(255,90,77,.35)"><div class="lbl" style="color:#ff8a80">DIRECTORATE SAYS</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#ffd2cc">Lethal everywhere</div><div style="font-size:11.5px;color:#c9a9a4">No data published</div></div>
-      <div style="padding:12px;border-radius:14px;background:rgba(194,123,255,.08);border:1px solid rgba(194,123,255,.4)"><div class="lbl" style="color:#d6b6ff">PROBE MEASURES</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#f4ecff">Survivable with gear</div><div style="font-size:11.5px;color:#b9a9d0">Hotspots: 5 mapped</div></div></div>
+      <div style="padding:12px;border-radius:14px;background:rgba(255,90,77,.07);border:1px solid rgba(255,90,77,.35)"><div class="lbl" style="color:#ff8a80">DIRECTORATE SAYS</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#ffd2cc">Lethal everywhere</div><div style="font-size:12px;color:#c9a9a4">No data published</div></div>
+      <div style="padding:12px;border-radius:14px;background:rgba(194,123,255,.08);border:1px solid rgba(194,123,255,.4)"><div class="lbl" style="color:#d6b6ff">PROBE MEASURES</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#f4ecff">Survivable with gear</div><div style="font-size:12px;color:#b9a9d0">Hotspots: 5 mapped</div></div></div>
     <div class="card" style="border-color:rgba(194,123,255,.3)"><div class="lbl">TIME YOU CAN SPEND OUTSIDE</div><div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
       ${gear.map(g => `<div style="display:grid;grid-template-columns:96px 1fr 54px;gap:10px;align-items:center"><div style="font-size:12.5px">${g[0]}</div><div class="bar" style="height:12px"><i style="width:${g[2]};background:${g[3]}"></i></div><div class="mono" style="font-size:12px;text-align:right;color:${g[4]}">${g[1]}</div></div>`).join('')}</div></div>
     <div class="note mono" style="background:rgba(8,12,20,.92);border:1px solid ${s ? 'rgba(61,220,151,.5)' : 'rgba(255,176,32,.4)'};font-size:11px;line-height:1.6;color:#a9b6cc">
@@ -241,12 +246,15 @@
   }
   render();
 
+  const VIDEO = /[?&]video=1/.test(location.search);
   let open = false, hooks = {};
   function layout() {
     const W = innerWidth, H = innerHeight;
-    if (open) { const s = Math.min(1.05, (H * .9) / 844, (W * .92) / 390); ph.style.transform = `translate(${(W - 390 * s) / 2}px, ${(H - 844 * s) / 2}px) scale(${s})`; }
+    if (open) { let s = Math.min(1.05, (H * .9) / 844, (W * .92) / 390); if (VIDEO) s = Math.min(s * 1.12, (H * .97) / 844, (W * .92) / 390);
+      const x = VIDEO ? Math.min(W - 390 * s - 16, (W - 390 * s) / 2 + W * .14) : (W - 390 * s) / 2;
+      ph.style.transform = `translate(${x}px, ${(H - 844 * s) / 2}px) scale(${s})`; }
     else { const s = Math.max(.16, Math.min(.22, H / 4200)); ph.style.transform = `translate(${W - 390 * s - 26}px, ${H - 844 * s - 26}px) scale(${s}) rotate(-0deg)`;
-      badge.style.left = (W - 390 * s - 26) + 'px'; badge.style.top = (H - 844 * s - 26 - 30) + 'px'; }
+      badge.style.left = 'auto'; badge.style.right = '26px'; badge.style.top = (H - 844 * s - 26 - 30) + 'px'; }
   }
   addEventListener('resize', layout); layout();
   function show(v) { ph.style.visibility = badge.style.visibility = v ? 'visible' : 'hidden'; }

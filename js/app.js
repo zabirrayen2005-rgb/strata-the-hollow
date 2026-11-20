@@ -29,6 +29,20 @@
     const lifeBefore = over => E.life(E.allocate(78, 'str'), Object.assign({ leakFixed: S().life.leak, nightLamps: S().life.lamps, triage: S().life.triage }, over));
     const needSplit = 'Apply the fair split first';
     const cutOff = L => Math.max(L.dry, L.hungry);
+    // surface: suits/domes from the dose here; "no protection" = the same remaining time the HUD shows
+    function protNow(onS) {
+      const p = E.surface.protection(onS ? C.rad.mult : 1);
+      if (onS) { p[0] = { ...p[0], seconds: C.rad.seconds, label: fmt(C.rad.seconds) }; }
+      return p;
+    }
+    const lastShown = {}, tweening = {};
+    function tween(n, k, a, b, final) {
+      const dec = (final.split('.')[1] || '').replace(/\D.*/, '').length, comma = final.includes(','), t0 = performance.now();
+      tweening[k] = true;
+      const show = v => { n.textContent = comma ? Math.round(v).toLocaleString('en-US') : v.toFixed(dec); };
+      const step = () => { const t = Math.min(1, (performance.now() - t0) / 600), e = 1 - Math.pow(1 - t, 3); show(a + (b - a) * e); if (t < 1) (document.hidden ? setTimeout : requestAnimationFrame)(step, 16); else { n.textContent = final; tweening[k] = false; } };
+      show(a); step();
+    }
     let confirmDir = false;                         // one-tap confirm before the Directorate split
     let stripShown = null, chipTip = null, heatDir = false, stagger = null;   // stagger null = default by split                  // last strip state drawn (for the cross-fade), tapped level chip
     // live feed temperatures: feed 3 drifts from 86 °C toward its 100 °C trip as the countdown runs, until it is bypassed
@@ -64,6 +78,21 @@
         <div style="margin-top:12px;font:700 20px Rajdhani,sans-serif;letter-spacing:.03em;color:${cut ? RED : GREEN}">${cut ? n0(cut) + ' people lose water and air' : 'Everyone keeps water and air'}</div></div>`;
     }
 
+    // ------------------------------------------------------------ HOME tiles (2 × 3)
+    function tilesHtml() {
+      const s = S(), fixed = s.applied === 'str', L = M.life, cut = L ? cutOff(L) : 0, lifeDone = s.life.leak && s.life.lamps && s.life.triage;
+      const tile = (go, icon, color, name, subTxt, subColor, extra = '') => `<button type="button" class="tile${extra}" ${go ? `data-go="${go}"` : 'aria-disabled="true"'} style="border-color:${color}59">${ic(icon, color)}<b>${name}</b><span style="${subColor ? 'color:' + subColor : ''}">${subTxt}</span></button>`;
+      const lifeSub = cut ? [n0(cut) + ' cut off', RED] : L && L.leak ? ['Leak on L5', AMBER] : L ? [`Water ${d1(L.waterDays)} d · Food ${d0(L.foodDays)} d`, GREEN] : ['', ''];
+      return [
+        tile('power', 'bolt', '#ffb020', 'POWER', fixed ? 'Fair split live' : s.bypass ? 'Bypassed · split needed' : 'Feed 3 overheating'),
+        tile('life', 'drop', '#4fc3f7', 'LIFE', lifeSub[0], lifeSub[1], s.flags.supplies && !lifeDone && L && L.leak ? ' hot' : ''),
+        tile('mesh', 'mesh', '#5fd0ff', 'MESH', s.ava && s.ava.state === 'replied' ? 'Ava: “I’m safe”' : s.netCut ? 'Network cut · mesh up' : 'Standby'),
+        tile('share', 'share', GREEN, 'FAIR SHARE', fixed ? 'Every level above minimum' : s.applied === 'dir' ? 'Directorate split: Deep at 0' : 'Directorate plan: Deep cut', fixed ? '' : RED),
+        tile('surface', 'sun', '#c27bff', 'SURFACE', s.sent ? 'Reading signed + sent' : s.stage >= 6 ? 'Hatch override ready' : 'Sealed by Directorate'),
+        tile(s.sent ? 'ret' : null, 'apt', '#ffd27a', 'RETURN', s.sent ? 'All up by day ' + M.plan.allUp : 'Locked until the reading is signed'),
+      ].join('');
+    }
+
     // ------------------------------------------------------------ HOME
     function home() {
       const s = S(), fixed = s.applied === 'str', dark = M.dark;
@@ -73,7 +102,7 @@
       <div class="hd" style="flex-direction:row;align-items:center;justify-content:space-between">
         <div><div style="font:700 28px Rajdhani,sans-serif;letter-spacing:.34em;color:#eaf4ff">STR<span style="color:#5fd0ff">A</span>TA</div>
         <div class="kick" style="color:#8fa0bb;font-size:11px">MARA · ${P.state.level.toUpperCase()}</div></div>
-        <div class="mono" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid ${s.netCut ? 'rgba(255,90,77,.5)' : 'rgba(61,220,151,.45)'};background:${s.netCut ? 'rgba(255,90,77,.1)' : 'rgba(61,220,151,.08)'};font-size:10.5px;color:${s.netCut ? '#ffb4ab' : '#8ff0c4'};letter-spacing:.08em">
+        <div class="mono" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid ${s.netCut ? 'rgba(255,90,77,.5)' : 'rgba(61,220,151,.45)'};background:${s.netCut ? 'rgba(255,90,77,.1)' : 'rgba(61,220,151,.08)'};font-size:11px;color:${s.netCut ? '#ffb4ab' : '#8ff0c4'};letter-spacing:.08em">
         <span class="${s.netCut ? 'pulse' : ''}" style="width:7px;height:7px;border-radius:50%;background:${s.netCut ? '#ff5a4d' : '#3ddc97'}"></span>${s.netCut ? 'NET CUT · MESH ON' : 'NETWORK UP'}</div></div>
       <div style="position:relative;margin:18px auto 0;width:220px;height:220px">
         <svg width="220" height="220" viewBox="0 0 236 236" aria-hidden="true"><circle cx="118" cy="118" r="104" fill="none" stroke="rgba(95,208,255,.12)" stroke-width="2"/>
@@ -81,18 +110,15 @@
         <circle cx="118" cy="118" r="92" fill="none" stroke="${fixed ? '#3ddc97' : dark ? '#ff5a4d' : '#ffb020'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="578" stroke-dashoffset="${ring}" transform="rotate(-90 118 118)"/></svg>
         <div style="position:absolute;inset:14px;border-radius:50%;background:conic-gradient(from 0deg,rgba(95,208,255,.22),transparent 18%);animation:spSweep 4s linear infinite"></div>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-          <div class="mono" style="font-size:10.5px;letter-spacing:.2em;color:${fixed ? '#8ff0c4' : '#ffcf7a'}">${fixed ? 'DEEP POWER SECURED' : dark ? 'THE DEEP IS DARK' : 'DEEP GOES DARK IN'}</div>
+          <div class="mono" style="font-size:11px;letter-spacing:.2em;color:${fixed ? '#8ff0c4' : '#ffcf7a'}">${fixed ? 'DEEP POWER SECURED' : dark ? 'THE DEEP IS DARK' : 'DEEP GOES DARK IN'}</div>
           <div data-live="cd" style="font:700 52px/1 Rajdhani,sans-serif;color:#fff4dd">${fixed ? '6 H+' : fmt(M.cd)}</div>
           <div style="font-size:12px;color:#a9b6cc">${M.fc ? (fixed ? pct(M.fcBypassStr.pDark) + ' of 500 forecasts dark' : pct(M.fc.pDark) + ' of 500 forecasts') : ''}</div></div></div>
       <button type="button" class="askbar" data-act="askopen">✦ Ask Strata…</button>
       <div style="position:relative;padding:16px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <button type="button" class="tile" data-go="power" style="border-color:rgba(255,176,32,.35)">${ic('bolt', '#ffb020')}<b>POWER</b><span>${fixed ? 'Fair split live' : s.bypass ? 'Bypassed · split needed' : 'Feed 3 overheating'}</span></button>
-        <button type="button" class="tile" data-go="mesh" style="border-color:rgba(95,208,255,.35)">${ic('mesh', '#5fd0ff')}<b>MESH</b><span>${s.ava && s.ava.state === 'replied' ? 'Ava: “I’m safe”' : s.netCut ? 'Network cut · mesh up' : 'Standby'}</span></button>
-        <button type="button" class="tile" data-go="share" style="border-color:rgba(61,220,151,.35)">${ic('share', '#3ddc97')}<b>FAIR SHARE</b><span>${fixed ? 'Every level above minimum' : s.applied === 'dir' ? 'Directorate split: Deep at 0' : 'Directorate plan: Deep cut'}</span></button>
-        <button type="button" class="tile" data-go="surface" style="border-color:rgba(194,123,255,.4)">${ic('sun', '#c27bff')}<b>SURFACE</b><span>${s.sent ? 'Reading signed + sent' : s.stage >= 6 ? 'Hatch override ready' : 'Sealed by Directorate'}</span></button></div>
+        ${tilesHtml()}</div>
       <div class="card" style="border-color:rgba(120,160,255,.3)"><div class="lbl">DIGITAL TWIN OF THE HOLLOW</div>
         <div class="row3" style="margin:8px 0 0"><div><div class="lbl">TWINS</div><div class="big" style="color:#9fc0ff">${tw.twins.length}</div></div><div><div class="lbl">LINKS</div><div class="big" style="color:#9fc0ff">${tw.rels.length}</div></div><div><div class="lbl">MODELS</div><div class="big" style="color:#9fc0ff">${tw.models.length}</div></div></div>
-        <div class="mono" style="margin-top:8px;font-size:10px;color:#7f93b5;line-height:1.5">dtmi:strata:PowerFeed;1 → powers → Level → feeds → WaterLoop<br>Levels, feeds, water loops, farms, clinics, lamps and the lift, built from the level data.</div></div>
+        <div class="mono" style="margin-top:8px;font-size:11px;color:#9fb3d1;line-height:1.5">dtmi:strata:PowerFeed;1 → powers → Level → feeds → WaterLoop<br>Levels, feeds, water loops, farms, clinics, lamps and the lift, built from the level data.</div></div>
       ${pw('Azure Digital Twins model (DTDL)', 'MetroStar Comet-style UI')}`;
     }
 
@@ -162,8 +188,8 @@
       g += `<path d="M${fc.mean.map((v, i) => X(i) + ',' + Y(v)).join(' L')}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2"/>`;
       const yMin = Y(fc.deepMin);
       return `<svg width="326" height="${H + 14}" viewBox="0 0 326 ${H + 14}" style="display:block;margin-top:8px" role="img" aria-label="Forecast: Deep power across ${fc.runs} runs">
-        <line x1="0" y1="${yMin}" x2="326" y2="${yMin}" stroke="#ff5a4d" stroke-dasharray="4 4"/><text x="4" y="${yMin - 5}" fill="#ff8a80" font-size="10" font-family="JetBrains Mono,monospace">SURVIVAL MINIMUM</text>
-        ${g}<text x="4" y="${H + 12}" fill="#8fa0bb" font-size="10" font-family="JetBrains Mono,monospace">NOW</text><text x="290" y="${H + 12}" fill="#8fa0bb" font-size="10" font-family="JetBrains Mono,monospace">+${fc.horizon / 60} MIN</text></svg>`;
+        <line x1="0" y1="${yMin}" x2="326" y2="${yMin}" stroke="#ff5a4d" stroke-dasharray="4 4"/><text x="4" y="${yMin - 5}" fill="#ff8a80" font-size="11" font-family="JetBrains Mono,monospace">SURVIVAL MINIMUM</text>
+        ${g}<text x="4" y="${H + 12}" fill="#8fa0bb" font-size="11" font-family="JetBrains Mono,monospace">NOW</text><text x="290" y="${H + 12}" fill="#8fa0bb" font-size="11" font-family="JetBrains Mono,monospace">+${fc.horizon / 60} MIN</text></svg>`;
     }
     function power() {
       const s = S(), fc = M.fc, by = s.bypass, fixed = s.applied === 'str';
@@ -171,6 +197,7 @@
       const F = E.FEEDS;
       let body = hd('PROBLEM #1 · BLACKOUTS', '#ffcf7a', 'Blackout forecast', '#fff4dd', `${fc ? fc.runs : 500} Monte Carlo runs of the geothermal grid, rerun every minute.`);
       body += steps(fixed ? 5 : by ? 3 : 2);
+      body += `<div class="card" style="border-color:${fixed ? GREEN : RED}55"><div class="lbl">DEEP GOES DARK IN</div>${verdict(fixed ? pct(show.pDark) : pct(fc.pDark), 'of 500 runs', fixed ? GREEN : RED, 'pdark')}${fixed ? delta(pct(fc.pDark), pct(show.pDark), 'of runs dark') : `<div class="why">Feed 3 overheats. The Directorate cuts the Deep first.</div>`}</div>`;
       body += `<div class="card" style="border-color:rgba(255,176,32,.3)"><div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lbl">DEEP POWER · ${fixed ? 'AFTER FAIR SPLIT' : 'DIRECTORATE PLAN'}</div>
         <div class="big" style="color:${fixed ? '#3ddc97' : '#ffb020'}">${fixed ? pct(show.pDark) + ' DARK' : 'DARK IN ' + fmt(M.cd)}</div></div>${fan(show, fixed ? '#3ddc97' : '#ffb020')}</div>`;
       body += `<div class="row3">${F.map((f, i) => { const bad = i === 2 && !by; const byp = i === 2 && by;
@@ -198,6 +225,7 @@
         <div class="mono" style="font-size:12px;text-align:right;color:${r.belowMin ? '#ff8a80' : mode === 'str' ? '#8ff0c4' : '#c9d4e6'}">${r.mw.toFixed(1)}</div></div>`; }).join('');
       const below = rows.filter(r => r.belowMin).map(r => r.name);
       let body = hd('PROBLEM #2 · RATIONING', '#8ff0c4', 'Fair share', '#eafff5', `${total} MW to share between six levels that need ${E.LEVELS.reduce((a, l) => a + l.demand, 0)} MW.`);
+      { const cutP = cutOff(E.life(rows)); body += `<div class="card" style="border-color:${cutP ? RED : GREEN}55"><div class="lbl">${mode === 'str' ? 'STRATA SPLIT' : 'DIRECTORATE SPLIT'} · PEOPLE WHO LOSE WATER AND AIR</div>${verdict(n0(cutP), 'people', cutP ? RED : GREEN, 'scut')}${s.applied === 'str' ? delta(n0(cutOff(M.lifeDir)), '0', 'people cut off') : ''}</div>`; }
       body += `<div class="seg" role="group" aria-label="Allocation"><button type="button" data-act="preview" data-arg="dir" style="${mode === 'dir' ? 'background:rgba(255,90,77,.18);color:#ffb4ab' : ''}">DIRECTORATE</button><button type="button" data-act="preview" data-arg="str" style="${mode === 'str' ? 'background:rgba(61,220,151,.18);color:#8ff0c4' : ''}">STRATA</button></div>`;
       body += `<div class="card" style="display:flex;flex-direction:column;gap:11px"><div class="lbl" style="display:flex;justify-content:space-between"><span>POWER BY LEVEL</span><span>MW</span></div>${list}
         <div style="font-size:11px;color:#8fa0bb">White tick: survival minimum (${Math.round(E.SURVIVAL * 100)}%) for air pumps, cooling and the lift.</div></div>`;
@@ -229,7 +257,7 @@
       if (M.route) o += `<polyline points="${M.route.path.map(i => X(g.nodes[i].x) + ',' + Y(g.nodes[i].y)).join(' ')}" fill="none" stroke="${S().ava && S().ava.state === 'replied' ? '#3ddc97' : '#ffcf7a'}" stroke-width="3" stroke-linejoin="round"/>`;
       g.nodes.forEach((n, i) => { const me = n.kind === 'me', rel = n.kind === 'relay';
         o += `<circle cx="${X(n.x)}" cy="${Y(n.y)}" r="${me ? 6 : rel ? 6 : 3}" fill="${me ? '#ffcf7a' : rel ? '#9fdcff' : hop && hop[i] >= 0 ? '#5fd0ff' : '#33405a'}"${me ? ' stroke="#fff" stroke-width="1.5"' : ''}/>`; });
-      o += `<text x="${(+X(0) + 9)}" y="${(+Y(-1.9) + 4)}" fill="#9fdcff" font-size="10" font-family="JetBrains Mono,monospace">LIFT RELAY</text>`;
+      o += `<text x="${(+X(0) + 9)}" y="${(+Y(-1.9) + 4)}" fill="#9fdcff" font-size="11" font-family="JetBrains Mono,monospace">LIFT RELAY</text>`;
       return `<svg width="330" height="300" viewBox="0 0 330 300" style="display:block" role="img" aria-label="Map of resident phones in the Deep">${o}</svg>`;
     }
     // ------------------------------------------------------------ ASK STRATA: offline intent router over the live engines
@@ -288,7 +316,8 @@
       else {
         body += `<div class="note alert" style="margin-top:14px;padding:10px 12px;background:rgba(255,90,77,.08);border:1px solid rgba(255,90,77,.35);font-size:12.5px;color:#ffd2cc"><span class="pulse" style="width:8px;height:8px;border-radius:50%;background:#ff5a4d"></span>Directorate network offline</div>`;
         body += `<div class="card" style="margin-top:10px;padding:8px 6px 6px;border-color:rgba(95,208,255,.25)">${meshMap()}</div>`;
-        body += `<div class="row3"><div><div class="lbl">IN RANGE</div><div class="big" data-live="range" style="color:#5fd0ff">${M.inRange}</div></div><div><div class="lbl">REACHED</div><div class="big" data-live="reach" style="color:#5fd0ff">${s.broadcast ? M.reach : '—'}</div></div><div><div class="lbl">SIGNING</div><div class="big" style="color:#3ddc97">P-256</div></div></div>`;
+        body += `<div class="card" style="border-color:rgba(95,208,255,.35)"><div class="lbl">PHONES ON THE MESH</div>${verdict(String(M.reach), 'on the mesh', '#5fd0ff', 'reach')}<div class="why"><b data-live="range">${M.inRange}</b> in range of you · ${s.broadcast ? 'warning delivered to every one' : 'no towers, no Directorate'}</div></div>`;
+        body += `<div class="row3"><div><div class="lbl">IN RANGE OF YOU</div><div class="big" style="color:#5fd0ff">${M.inRange}</div></div><div><div class="lbl">ON THE MESH</div><div class="big" style="color:#5fd0ff">${M.reach}</div></div><div><div class="lbl">SIGNING</div><div class="big" style="color:#3ddc97">P-256</div></div></div>`;
         if (!s.broadcast) body += btn('broadcast', 'BROADCAST BLACKOUT WARNING', '#5fd0ff', 'linear-gradient(90deg,#0e3b56,#2a1757)');
         else if (!s.ava) body += btn('ava', 'CHECK IN ON AVA · L4 WORKS', '#ffcf7a', 'linear-gradient(90deg,#4a3206,#2a1757)');
         if (s.ava) {
@@ -306,16 +335,17 @@
     // ------------------------------------------------------------ SURFACE (Act 3)
     function surface() {
       const s = S(), mapped = s.mapped.length, HOT = C.G.S.hotspots, onS = P.state.level === 'The surface';
-      const prot = E.surface.protection(onS ? M.dose : 1);
+      const prot = protNow(onS);
       const area = s.mapped.reduce((a, i) => a + Math.PI * Math.pow(HOT[i][2] * 2.2, 2), 0) / (92 * 92);
       let body = hd('PROBLEM #13 · IS IT SAFE?  +  #14 WHO FIRST', '#d6b6ff', 'Surface truth', '#f4ecff', 'Probes at the hatch measure the air. A drone maps the hotspots.');
       if (s.stage < 6) return body + `<div class="note" style="background:rgba(255,90,77,.08);border:1px solid rgba(255,90,77,.35);color:#ffd2cc">Hatch sealed by Directorate order. Nobody below can read the probes.</div>`;
+      body += `<div class="card" style="border-color:rgba(194,123,255,.45)"><div class="lbl">TIME OUTSIDE IN A SEALED SUIT</div>${verdict(prot[1].label, 'not minutes', '#d6b6ff')}${s.sent ? delta('“lethal in minutes”', prot[1].label, 'signed') : '<div class="why">The Directorate says the air kills in minutes. The probe measures it.</div>'}</div>`;
       body += `<div style="margin:14px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="padding:12px;border-radius:14px;background:rgba(255,90,77,.07);border:1px solid rgba(255,90,77,.35)"><div class="lbl" style="color:#ff8a80">DIRECTORATE SAYS</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#ffd2cc">Lethal in minutes</div><div style="font-size:11.5px;color:#c9a9a4">No data published</div></div>
-        <div style="padding:12px;border-radius:14px;background:rgba(194,123,255,.08);border:1px solid rgba(194,123,255,.4)"><div class="lbl" style="color:#d6b6ff">PROBE AT YOUR SPOT</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#f4ecff" data-live="dose">${onS ? '×' + M.dose.toFixed(2) + ' background' : 'Go up to read'}</div><div style="font-size:11.5px;color:#b9a9d0" data-live="drone">${M.droneMsg}</div></div></div>`;
+        <div style="padding:12px;border-radius:14px;background:rgba(255,90,77,.07);border:1px solid rgba(255,90,77,.35)"><div class="lbl" style="color:#ff8a80">DIRECTORATE SAYS</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#ffd2cc">Lethal in minutes</div><div style="font-size:12px;color:#c9a9a4">No data published</div></div>
+        <div style="padding:12px;border-radius:14px;background:rgba(194,123,255,.08);border:1px solid rgba(194,123,255,.4)"><div class="lbl" style="color:#d6b6ff">PROBE AT YOUR SPOT</div><div style="font:700 19px Rajdhani,sans-serif;margin-top:4px;color:#f4ecff" data-live="dose">${onS ? '×' + M.dose.toFixed(2) + ' background' : 'Go up to read'}</div><div style="font-size:12px;color:#b9a9d0" data-live="drone">${M.droneMsg}</div></div></div>`;
       body += `<div class="card" style="border-color:rgba(194,123,255,.3)"><div class="lbl">TIME TO THE DOSE LIMIT · LIVE AT YOUR POSITION</div><table class="tbl" style="margin-top:8px">${prot.map(o => `<tr><td>${o.name}</td><td style="color:#8fa0bb">${o.ready}</td><td class="mono" data-live="t-${o.id}" style="text-align:right;color:${o.id === 'none' ? '#ff8a80' : o.id === 'suit' ? '#d6b6ff' : '#8ff0c4'}">${o.label}</td></tr>`).join('')}</table></div>`;
       body += cop(`At your spot the dose is <b>×${(onS ? M.dose : 1).toFixed(2)}</b> background. Unprotected you reach the limit in <b>${prot[0].label}</b>; a sealed suit stretches that to <b>${prot[1].label}</b>. The drone has mapped <b>${mapped} of ${HOT.length}</b> hotspots, covering about <b>${Math.round(area * 100)}%</b> of the surveyed area. Recommendation: suits for a scout crew now, domes for the next wave.`);
-      if (!s.crew) body += btn('crew', 'PICK THE FIRST CREW', '#c27bff', 'linear-gradient(90deg,#2a1757,#4a1d6b)', mapped < 2);
+      if (!s.crew) body += btn('crew', mapped < 2 ? 'WAITING FOR THE DRONE · ' + mapped + ' OF 2 HOTSPOTS' : 'PICK THE FIRST CREW', '#c27bff', 'linear-gradient(90deg,#2a1757,#4a1d6b)', mapped < 2);
       if (M.crew) body += `<div class="card" style="border-color:rgba(194,123,255,.3)"><div class="lbl" style="display:flex;justify-content:space-between"><span>FIRST CREW · ${M.crew.pick.length} OF ${M.crew.considered} VOLUNTEERS</span><span>SCORE</span></div><table class="tbl" style="margin-top:6px">${M.crew.pick.slice(0, 8).map(v => `<tr><td>${v.name}</td><td style="color:#8fa0bb">${v.skill} · ${v.level}</td><td class="mono" style="color:#8fa0bb">lungs ${v.lungs}</td><td class="mono" style="text-align:right;color:#d6b6ff">${v.score}</td></tr>`).join('')}</table>
         <div style="font-size:11px;color:#8fa0bb;margin-top:6px">Score: lung health, age near 32, fewer dependents. Quotas: 3 engineers, 2 medics, 4 scouts. +${M.crew.pick.length - 8} more.</div></div>`;
       if (s.crew && !s.planted) body += `<div class="note" style="background:rgba(61,220,151,.08);border:1px solid rgba(61,220,151,.4);color:#c9f5df">Strata picked the probe site: the lowest dose near the hatch, away from every mapped hotspot. Walk to the green marker and press E.</div>`;
@@ -332,6 +362,7 @@
     function ret() {
       const pl = M.plan, s = S();
       let body = hd('PROBLEM #15 · THE WAY UP', '#ffd9a0', 'Return plan', '#fff4e0', `One lift, ${pl.total.toLocaleString()} residents. Strata plans the move in waves.`);
+      body += `<div class="card" style="border-color:rgba(255,176,32,.4)"><div class="lbl">EVERYONE UP BY</div>${verdict('Day ' + pl.allUp, `${pl.total.toLocaleString()} people · ${pl.waves.length} waves`, '#ffd27a')}</div>`;
       body += `<div class="row3" style="margin-top:14px"><div><div class="lbl">LIFT / DAY</div><div class="big" style="color:#ffd27a">${pl.liftPerDay}</div></div><div><div class="lbl">WAVES</div><div class="big" style="color:#ffd27a">${pl.waves.length}</div></div><div><div class="lbl">ALL UP BY</div><div class="big" style="color:#ffd27a">Day ${pl.allUp}</div></div></div>`;
       // crowding (#6 SPACE)
       const sp = (M.life || E.life(E.allocate(78, 'str'))).space, maxM = 11, minX = 3.5 / maxM * 100;
@@ -349,8 +380,8 @@
       body += `<div class="dl" style="${stg ? '' : 'background:rgba(255,90,77,.1);border-color:rgba(255,90,77,.35);color:#ffb4ab'}"><s>${n0(T0.peak)}</s> → <b>${n0(T1.peak)}</b> peak</div>`;
       body += `<div class="seg" style="margin:10px 0 0" role="group"><button type="button" data-act="stagger" data-arg="0" style="${!stg ? 'background:rgba(255,90,77,.18);color:#ffb4ab' : ''}">ALL AT ONCE</button><button type="button" data-act="stagger" data-arg="1" style="${stg ? 'background:rgba(61,220,151,.18);color:#8ff0c4' : ''}">STAGGERED</button></div>`;
       body += `<svg width="326" height="${BH + 18}" viewBox="0 0 326 ${BH + 18}" style="display:block;margin-top:10px" role="img" aria-label="People per 20-minute window">
-        ${T.windows.map((w, i) => { const h = w.people / maxP * BH, x = stg ? 8 + i * (bw + gap) : 100; return `<rect x="${x}" y="${(BH - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="3" fill="${w.people > cap ? RED : GREEN}" fill-opacity=".85"/><text x="${x + bw / 2}" y="${BH + 13}" text-anchor="middle" fill="#8fa0bb" font-size="10" font-family="JetBrains Mono,monospace">${stg ? 'L' + (i + 1) : 'ALL'}</text>`; }).join('')}
-        <line x1="0" y1="${yCap}" x2="326" y2="${yCap}" stroke="#fff" stroke-dasharray="4 4" stroke-opacity=".7"/><text x="322" y="${(+yCap - 4)}" text-anchor="end" fill="#c8d4e6" font-size="10" font-family="JetBrains Mono,monospace">CAPACITY ${n0(cap)}</text></svg>`;
+        ${T.windows.map((w, i) => { const h = w.people / maxP * BH, x = stg ? 8 + i * (bw + gap) : 100; return `<rect x="${x}" y="${(BH - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="3" fill="${w.people > cap ? RED : GREEN}" fill-opacity=".85"/><text x="${x + bw / 2}" y="${BH + 13}" text-anchor="middle" fill="#8fa0bb" font-size="11" font-family="JetBrains Mono,monospace">${stg ? 'L' + (i + 1) : 'ALL'}</text>`; }).join('')}
+        <line x1="0" y1="${yCap}" x2="326" y2="${yCap}" stroke="#fff" stroke-dasharray="4 4" stroke-opacity=".7"/><text x="322" y="${(+yCap - 4)}" text-anchor="end" fill="#c8d4e6" font-size="11" font-family="JetBrains Mono,monospace">CAPACITY ${n0(cap)}</text></svg>`;
       if (stg) body += `<table class="tbl" style="margin-top:6px">${T.windows.map(w => { const m = 360 + w.start; return `<tr><td>${w.who}</td><td class="mono" style="text-align:right;color:#c8d4e6">${String(m / 60 | 0).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}</td><td class="mono" style="text-align:right;color:#8fa0bb">${n0(w.people)}</td></tr>`; }).join('')}</table>
         <div class="why" style="color:#8fa0bb">Strata sends each level its window over the mesh.</div>`;
       body += '</div>' + cop(`Shift changes are staggered by level, so the main corridors never carry more than <b>${Math.round(T1.load * 100)}%</b> of their capacity, down from <b>${(T0.load).toFixed(1)}×</b> when everyone moves at once. The same windows are used for the lift during the return.`);
@@ -382,14 +413,23 @@
           if (askFocus) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); const c = el.querySelector('#askcard'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
         }
         el.querySelectorAll('.lsi[data-on]').forEach(n => { const off = n.dataset.on === '0'; if (n.classList.contains('off') !== off) { void n.offsetWidth; n.classList.toggle('off', off); } });
-        const set = (k, v) => { const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
+        const set = (k, v) => { if (tweening[k]) return; const n = el.querySelector(`[data-live="${k}"]`); if (n && n.textContent !== v) n.textContent = v; };
         set('cd', S().applied === 'str' ? '6 H+' : fmt(M.cd));
         { const f = liveFeeds()[2]; set('f3t', f.temp.toFixed(1) + ' °C'); const w = el.querySelector('[data-live-w="f3"]'); if (w) w.setAttribute('width', ((f.temp - 60) / 45 * 300).toFixed(1)); }
+        el.querySelectorAll('.vn[data-live]').forEach(n => {
+          const k = n.dataset.live, cur = n.textContent, prev = lastShown[k];
+          if (prev !== undefined && prev !== cur && !tweening[k]) {
+            const a = parseFloat(prev.replace(/,/g, '')), b = parseFloat(cur.replace(/,/g, ''));
+            if (isFinite(a) && isFinite(b)) tween(n, k, a, b, cur);
+            const card = n.closest('.card'); if (card) { card.classList.add('glow'); setTimeout(() => card.classList.remove('glow'), 1000); }
+          }
+          lastShown[k] = cur;
+        });
         if (M.life) { set('cut', n0(cutOff(M.life))); set('water', d1(M.life.waterDays)); set('food', d0(M.life.foodDays)); }
         set('range', String(M.inRange)); if (S().broadcast) set('reach', String(M.reach));
         if (P.state.level === 'The surface') {
           set('dose', '×' + M.dose.toFixed(2) + ' background'); set('drone', M.droneMsg);
-          for (const o of E.surface.protection(M.dose)) set('t-' + o.id, o.label);
+          for (const o of protNow(true)) set('t-' + o.id, o.label);
         }
       },
       act(a, el) {

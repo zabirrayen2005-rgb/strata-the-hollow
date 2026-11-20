@@ -265,7 +265,10 @@
   let level = 'D', state = 'menu', health = 100, surfT = 0, deathT = 0, travelling = false, flashTarget = 0;
   const liftDoor = { D: 0, R: 0, S: 0 }; // 0 closed .. 1 open
   const aptDoor = {};
-  const world = { brown: 0, dark: 0 };   // story-driven: Deep brownout flicker (0..1) and blackout (0..1)
+  const world = { brown: 0, dark: 0 };
+  const rad = { mult: 1, health: 100, seconds: 300 };   // single source of truth for the surface timer (HUD + phone)
+  const VIDEO = /[?&]video=1/.test(location.search);
+  if (VIDEO) document.body.classList.add('video');   // story-driven: Deep brownout flicker (0..1) and blackout (0..1)
   const SP = window.StrataPhone;   // team's Strata phone (js/phone.js)
   for (const l of LV) for (const d of G[l].doors) aptDoor[d.name] = 0;
 
@@ -278,7 +281,8 @@
     $('loc').innerHTML = '<b>' + G[l].name + '</b>'; if (SP) SP.setLevel(G[l].name);
     $('rad').style.display = l === 'S' ? 'block' : 'none';
     if (l !== 'S') { health = 100; }
-    surfT = 0; ambTo(l); banner(G[l].name, G[l].sub);
+    surfT = 0; ambTo(l); banner(G[l].name, (story && story.levelSub && story.levelSub(l)) || G[l].sub);
+    $('keys').style.display = l === 'S' ? 'none' : '';
     if (story) story.onLevel(l);
   }
   let bannerT = null;
@@ -431,7 +435,7 @@
   }
   function loop(now) { requestAnimationFrame(loop); frame(now); }
   function frame(now) {
-    let dt = Math.min(.05, (now - last) / 1000); last = now; tAcc += dt;
+    let dt = Math.max(0, Math.min(.05, (now - last) / 1000)); last = Math.max(last, now); tAcc += dt;   // never step backwards (debug tick() can run ahead of real time)
     const g = G[level];
     // movement
     if (state === 'play' && !travelling && !(story && story.busy())) {
@@ -489,8 +493,10 @@
       }
       radK = clamp(.15 + (1 - health / 100) * .55 + (mult - 1) * .12, 0, 1);
       $('radf').style.width = health.toFixed(1) + '%';
-      $('radt').textContent = fmtT(health / ((100 / 300) * mult));
-      $('dose').textContent = (mult / shield > 1.6 ? 'Hotspot · exposure ×' + (mult / shield).toFixed(1) : 'Background radiation') + (shield < 1 ? ' · rad-shield active' : '');
+      rad.mult = mult; rad.health = health; rad.seconds = window.StrataEngines.surface.protection(mult)[0].seconds * health / 100;
+      $('radt').textContent = fmtT(rad.seconds);
+      const radNote = story && story.radNote && story.radNote();
+      $('dose').textContent = (radNote ? radNote + ' · ' : '') + (mult / shield > 1.6 ? 'Hotspot · exposure ×' + (mult / shield).toFixed(1) : 'Background radiation') + (shield < 1 ? ' · rad-shield active' : '');
       geigerAcc += dt * (3 + 26 * (mult - 1) + 6 * (1 - health / 100));
       while (geigerAcc > 1) { geigerAcc -= 1 + Math.log(Math.random() + 1e-4) * .5; geiger(); }
       if (health < 30 && state === 'play') { beatT -= dt; if (beatT <= 0) { heartbeat(); beatT = .55 + health / 60; } }
@@ -502,7 +508,7 @@
     // death camera
     if (state === 'dead') { deathT += dt; P.eye = lerp(P.eye, .35, 1 - Math.exp(-dt * 2.2)); camera.rotation.z = lerp(camera.rotation.z, .9, 1 - Math.exp(-dt * 1.8)); P.pitch = lerp(P.pitch, .2, dt); }
     // ambient life
-    if (level === 'D' && state === 'play') { coughT -= dt; if (coughT < 0) { cough(); coughT = 3 + Math.random() * 7; } }
+    if (level === 'D' && state === 'play' && !VIDEO) { coughT -= dt; if (coughT < 0) { cough(); coughT = 3 + Math.random() * 7; } }
     if (AC && amb.S && level === 'S') amb.S[0].bq.frequency.value = 380 + 220 * Math.sin(tAcc * .37) + 90 * Math.sin(tAcc * 1.3);
     // camera
     const moving = P.speed > .2 && state === 'play';
@@ -560,7 +566,7 @@
     flash: () => { flashOn = !flashOn; blip(2400, .04, 'square', .05); },
     pause: () => { if (state !== 'play') return; state = 'paused'; $('menu').style.display = 'flex'; $('go').textContent = 'Tap to resume'; },
     setDragMode: v => { dragMode = v; },
-    world, banner,
+    world, banner, rad, fmtT, VIDEO,
     phone: SP || null, phoneCanOpen,
   };
   story = window.StoryInit ? window.StoryInit(ctx) : null;
