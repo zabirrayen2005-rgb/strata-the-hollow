@@ -4,3 +4,9 @@ Thumbs.db
 *.log
 .claude/
 keys/
+
+# demo video: outputs, review frames and voice recordings stay local
+video/out/
+video/scout/
+video/vo/*
+!video/vo/.gitkeep

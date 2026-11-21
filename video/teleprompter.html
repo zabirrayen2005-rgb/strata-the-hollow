@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strata demo · teleprompter</title>
+<style>
+  :root { --a: #ffb020; --b: #5fd0ff; --c: #c27bff; --ink: #eef2f8; --dim: #8a94a6; --bg: #07090d; --line: #1b2230; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Inter, "Segoe UI", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  video { display: block; width: 100%; max-height: 58vh; background: #000; object-fit: contain; }
+  #bar { height: 8px; background: var(--line); position: relative; }
+  #bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--b); }
+  #panel { flex: 1; min-height: 0; padding: 18px 28px 14px; display: flex; flex-direction: column; gap: 10px; }
+  #meta { display: flex; align-items: center; gap: 14px; font: 600 14px/1 "JetBrains Mono", Consolas, monospace; letter-spacing: .08em; color: var(--dim); }
+  #meta b { color: var(--ink); }
+  #who { font: 700 22px/1 Rajdhani, "Segoe UI", sans-serif; padding: 6px 12px; border-radius: 8px; border: 2px solid currentColor; letter-spacing: .08em; }
+  #now { font-size: 40px; line-height: 1.22; font-weight: 600; min-height: 2.5em; text-wrap: balance; }
+  #now.wait { color: var(--dim); font-weight: 500; }
+  #now.other { opacity: .38; }
+  #next { font-size: 21px; line-height: 1.35; color: var(--dim); }
+  #next b { font: 700 15px/1 "JetBrains Mono", Consolas, monospace; margin-right: 8px; }
+  #controls { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); }
+  button { font: 600 14px/1 inherit; color: var(--ink); background: #111723; border: 1px solid #2a3446; border-radius: 8px; padding: 9px 13px; cursor: pointer; }
+  button:hover { background: #172032; }
+  button:focus-visible { outline: 2px solid var(--b); outline-offset: 2px; }
+  button.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+  .A { color: var(--a); } .B { color: var(--b); } .C { color: var(--c); } .ABC { color: #fff; }
+  kbd { font: 600 12px/1 "JetBrains Mono", Consolas, monospace; padding: 3px 6px; border: 1px solid #2a3446; border-radius: 5px; color: var(--ink); }
+  #missing { display: none; padding: 10px 28px; background: #3a1414; color: #ffd2cc; font-size: 14px; }
+</style>
+</head>
+<body>
+<video id="v" src="strata_demo.mp4" preload="auto" playsinline></video>
+<div id="missing">Could not load strata_demo.mp4. Keep this file in the same folder as the video (video/out).</div>
+<div id="bar"><i></i></div>
+<div id="panel">
+  <div id="meta"><span id="who" class="B">—</span><span><b id="clock">0:00</b> / <span id="total">0:00</span></span><span id="count"></span><span id="line"></span></div>
+  <div id="now" class="wait">Press Space to start.</div>
+  <div id="next"></div>
+  <div id="controls">
+    <button id="play">Play</button><button id="restart">Restart</button><button id="prev">◀ Line</button><button id="nextb">Line ▶</button>
+    <span style="margin-left:8px">Highlight my lines:</span>
+    <button class="A" data-v="A">A · Narrator</button><button class="B" data-v="B">B · Strata</button><button class="C" data-v="C">C · Closer</button>
+    <span style="margin-left:auto"><kbd>Space</kbd> play / pause · <kbd>R</kbd> restart · <kbd>←</kbd> <kbd>→</kbd> jump between lines</span>
+  </div>
+</div>
+<script>
+// Filled in by video/assemble.mjs from video/timeline.json. Opens straight from the file: no server, no network.
+const VO = /*VOICEOVER*/[];
+const LENGTH = /*LENGTH*/0;
+const NAMES = { A: 'A · NARRATOR', B: 'B · STRATA', C: 'C · CLOSER', ABC: 'A + B + C · TOGETHER' };
+const COLOUR = { A: '#ffb020', B: '#5fd0ff', C: '#c27bff' };
+const v = document.getElementById('v'), $ = id => document.getElementById(id);
+const fmt = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+let mine = null;
+$('total').textContent = fmt(LENGTH);
+v.addEventListener('error', () => { $('missing').style.display = 'block'; });
+function draw() {
+  const t = v.currentTime;
+  const i = VO.findIndex(c => t >= c.start && t < c.end), nxt = VO.findIndex(c => c.start > t);
+  const cur = i >= 0 ? VO[i] : null, upcoming = nxt >= 0 ? VO[nxt] : null;
+  $('clock').textContent = fmt(t);
+  const now = $('now'), who = $('who'), bar = document.querySelector('#bar i');
+  if (cur) {
+    now.textContent = cur.text; now.className = mine && !cur.voice.includes(mine) ? 'other' : '';
+    who.textContent = NAMES[cur.voice]; who.className = cur.voice;
+    $('line').textContent = 'LINE ' + (i + 1) + ' OF ' + VO.length;
+  } else {
+    now.textContent = upcoming ? '…' : (t > 0 ? 'End.' : 'Press Space to start.'); now.className = 'wait';
+    who.textContent = upcoming ? 'NEXT: ' + NAMES[upcoming.voice] : '—'; who.className = upcoming ? upcoming.voice : 'B';
+    $('line').textContent = '';
+  }
+  // the bar counts down to the next line: it drains as the next start time approaches
+  const from = cur ? cur.start : (nxt > 0 ? VO[nxt - 1].end : 0), to = upcoming ? upcoming.start : (cur ? cur.end : LENGTH);
+  const left = Math.max(0, to - t), span = Math.max(.001, to - from);
+  bar.style.width = (100 * left / span) + '%';
+  bar.style.background = upcoming ? (COLOUR[upcoming.voice] || '#ffffff') : '#3a4558';
+  $('count').textContent = upcoming ? 'NEXT LINE IN ' + left.toFixed(1) + ' s' : '';
+  const nx = $('next');
+  if (upcoming) {
+    nx.textContent = ''; const b = document.createElement('b'); b.className = upcoming.voice; b.textContent = upcoming.voice === 'ABC' ? 'ALL' : upcoming.voice;
+    nx.append(b, document.createTextNode(upcoming.text)); nx.style.opacity = mine && !upcoming.voice.includes(mine) ? .45 : 1;
+  } else nx.textContent = '';
+  $('play').textContent = v.paused ? 'Play' : 'Pause';
+  requestAnimationFrame(draw);
+}
+const toggle = () => { if (v.paused) v.play(); else v.pause(); };
+const restart = () => { v.currentTime = 0; v.play(); };
+function jump(dir) {
+  const t = v.currentTime; let target;
+  if (dir > 0) { const c = VO.find(c => c.start > t + .05); target = c ? c.start : LENGTH; }
+  else { const prior = VO.filter(c => c.start < t - .6); target = prior.length ? prior[prior.length - 1].start : 0; }
+  v.currentTime = Math.max(0, target + .001);   // land on the line itself, not the last frame of the one before
+}
+$('play').onclick = toggle; $('restart').onclick = restart; $('prev').onclick = () => jump(-1); $('nextb').onclick = () => jump(1);
+document.querySelectorAll('button[data-v]').forEach(b => b.onclick = () => {
+  mine = mine === b.dataset.v ? null : b.dataset.v;
+  document.querySelectorAll('button[data-v]').forEach(x => x.classList.toggle('on', x.dataset.v === mine));
+});
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); toggle(); }
+  else if (e.code === 'KeyR') restart();
+  else if (e.code === 'ArrowRight') { e.preventDefault(); jump(1); }
+  else if (e.code === 'ArrowLeft') { e.preventDefault(); jump(-1); }
+});
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
