@@ -59,6 +59,7 @@ Voices: **A** Narrator (11 lines), **B** Strata (20 lines), **C** Closer (1 line
 | `assemble.mjs` | Cuts, joins, captions, teleprompter, checklist |
 | `teleprompter.html` | Template for the teleprompter |
 | `mix.mjs` | Adds the voices |
+| `kit.mjs` | Packs a small voiceover kit (teleprompter, 720p video, script, steps) to send to teammates |
 | `grab.mjs`, `sheet.mjs` | Review helpers: pull frames from a take into a contact sheet |
 
 ## How the capture works
