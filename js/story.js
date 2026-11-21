@@ -226,7 +226,10 @@
       const x = signCanvas.getContext('2d'), ok = S.life.leak;
       x.fillStyle = '#14110e'; x.fillRect(0, 0, 256, 128); x.strokeStyle = ok ? '#3ddc97' : '#ff5a4d'; x.lineWidth = 6; x.strokeRect(6, 6, 244, 116);
       x.fillStyle = '#c8c0b0'; x.font = '600 20px sans-serif'; x.textAlign = 'center'; x.fillText('WATER RATION', 128, 40);
-      x.fillStyle = ok ? '#3ddc97' : '#ff5a4d'; x.font = '700 40px sans-serif'; x.fillText(ok ? '15 L PER PERSON' : 'RATION 8 L', 128, 92);
+      const big = ok ? '15 L PER PERSON' : 'RATION 8 L'; let px = 40;
+      x.fillStyle = ok ? '#3ddc97' : '#ff5a4d'; x.font = `700 ${px}px sans-serif`;
+      while (x.measureText(big).width > 224 && px > 16) { px -= 2; x.font = `700 ${px}px sans-serif`; }   // shrink long text to fit the board
+      x.fillText(big, 128, 92 - (40 - px) * .3);
       signTex.needsUpdate = true;
     }
     const sign = new THREE.Group(); sign.position.copy(pos('D', SIGN_AT[0], SIGN_AT[1], 0)); sign.rotation.y = -Math.PI / 2 + .35;
